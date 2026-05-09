@@ -539,6 +539,14 @@ canvas{
   cursor:pointer;
 }
 
+.zip-status{
+  grid-column:2;
+  color:#ffb4b4;
+  font-size:11px;
+  min-height:14px;
+  margin-top:-4px;
+}
+
 .settings-overlay{
   display:none;
   position:fixed;
@@ -1198,7 +1206,7 @@ canvas{
             >UV</span>
             <button
               class="chart-expand-btn"
-              onclick="event.stopPropagation(); openChartModal(showingPressure ? 'pressureChart' : 'uvChart')"
+              onclick="event.stopPropagation(); openChartModal(getPressureChartCanvasId())"
               title="Expand chart"
             >
               ⤢
@@ -1220,6 +1228,14 @@ canvas{
           style="display:none;"
         >
           <canvas id="uvChart"></canvas>
+        </div>
+
+        <div
+          id="cloudCoverPanel"
+          class="chart-container"
+          style="display:none;"
+        >
+          <canvas id="cloudCoverChart"></canvas>
         </div>
 
       </div>
@@ -1404,11 +1420,18 @@ canvas{
             onkeydown="handleZipKey(event)"
           />
 
-          <button onclick="changeZipCode()">
+          <button
+            id="zipGoButton"
+            onclick="changeZipCode()"
+          >
             Go
           </button>
 
         </div>
+        <div
+          id="zipStatus"
+          class="zip-status"
+        ></div>
       </div>
 
     </div>
@@ -1694,6 +1717,7 @@ let humidityChart;
 
 let pressureChart;
 let uvChart;
+let cloudCoverChart;
 
 let precipChart;
 let rainAmountChart;
@@ -1704,7 +1728,7 @@ let rainAmountChart;
 
 let showingTemperature = true;
 let showingWind = true;
-let showingPressure = true;
+let pressureChartIndex = 0;
 let showingPrecip = true;
 let forecastPanelIndex = 0;
 let showingHeaderOverview = true;
@@ -1712,6 +1736,8 @@ let chartHourSpan = 24;
 let latestWeatherData = null;
 let weatherUpdateIntervalMinutes = 10;
 let weatherUpdateTimer = null;
+
+const EXPANDED_CHART_HOURS = 96;
 
 // ======================================
 // DESTROY
@@ -1727,6 +1753,7 @@ function destroyCharts(){
 
   if(pressureChart) pressureChart.destroy();
   if(uvChart) uvChart.destroy();
+  if(cloudCoverChart) cloudCoverChart.destroy();
 
   if(precipChart) precipChart.destroy();
   if(rainAmountChart) rainAmountChart.destroy();
@@ -1748,6 +1775,17 @@ function formatChartHour(date){
   )
   .replace(' AM','a')
   .replace(' PM','p');
+
+}
+
+function formatChartDay(date){
+
+  return date.toLocaleDateString(
+    'en-US',
+    {
+      weekday:'short'
+    }
+  );
 
 }
 
@@ -1777,6 +1815,246 @@ function getChartTimeFontSize(){
 
 }
 
+function getChartDates(data,hourlyData=[]){
+
+  const dates = [];
+
+  for(let i=0;i<data.length;i++){
+
+    dates.push(
+      new Date(
+        hourlyData[i] && hourlyData[i].dt
+          ? hourlyData[i].dt * 1000
+          : Date.now() + i * 60 * 60 * 1000
+      )
+    );
+
+  }
+
+  return dates;
+
+}
+
+function getChartLabels(data,hourlyData=[]){
+
+  return getChartDates(
+    data,
+    hourlyData
+  ).map(formatChartHour);
+
+}
+
+function getExpandedChartLabels(data,hourlyData=[]){
+
+  const dates =
+    getChartDates(
+      data,
+      hourlyData
+    );
+
+  return dates.map((date,index)=>{
+
+    const hour =
+      formatChartHour(date);
+
+    if(
+      index === 0 ||
+      date.getDate() !== dates[index - 1].getDate() ||
+      date.getMonth() !== dates[index - 1].getMonth() ||
+      date.getFullYear() !== dates[index - 1].getFullYear()
+    ){
+
+      return [
+        formatChartDay(date),
+        hour
+      ];
+
+    }
+
+    return hour;
+
+  });
+
+}
+
+function getDayBoundaryIndexes(data,hourlyData=[]){
+
+  const dates =
+    getChartDates(
+      data,
+      hourlyData
+    );
+
+  const boundaries = [];
+
+  for(let i=1;i<dates.length;i++){
+
+    if(
+      dates[i].getDate() !== dates[i - 1].getDate() ||
+      dates[i].getMonth() !== dates[i - 1].getMonth() ||
+      dates[i].getFullYear() !== dates[i - 1].getFullYear()
+    ){
+
+      boundaries.push(i);
+
+    }
+
+  }
+
+  return boundaries;
+
+}
+
+function getChartDayRanges(data,hourlyData=[]){
+
+  const dates =
+    getChartDates(
+      data,
+      hourlyData
+    );
+
+  const ranges = [];
+
+  if(!dates.length){
+
+    return ranges;
+
+  }
+
+  let startIndex = 0;
+  let currentLabel =
+    formatChartDay(dates[0]);
+
+  for(let i=1;i<dates.length;i++){
+
+    if(
+      dates[i].getDate() !== dates[i - 1].getDate() ||
+      dates[i].getMonth() !== dates[i - 1].getMonth() ||
+      dates[i].getFullYear() !== dates[i - 1].getFullYear()
+    ){
+
+      ranges.push({
+        label:currentLabel,
+        start:startIndex,
+        end:i - 1
+      });
+
+      startIndex = i;
+      currentLabel =
+        formatChartDay(dates[i]);
+
+    }
+
+  }
+
+  ranges.push({
+    label:currentLabel,
+    start:startIndex,
+    end:dates.length - 1
+  });
+
+  return ranges;
+
+}
+
+const midnightLinePlugin = {
+
+  id:'midnightLinePlugin',
+
+  afterDraw(chart,args,pluginOptions){
+
+    const indexes =
+      pluginOptions && pluginOptions.indexes
+        ? pluginOptions.indexes
+        : [];
+
+    const dayRanges =
+      pluginOptions && pluginOptions.dayRanges
+        ? pluginOptions.dayRanges
+        : [];
+
+    if(!indexes.length && !dayRanges.length){
+
+      return;
+
+    }
+
+    const xScale =
+      chart.scales.x;
+
+    const area =
+      chart.chartArea;
+
+    const ctx =
+      chart.ctx;
+
+    ctx.save();
+
+    ctx.strokeStyle =
+      'rgba(255,255,255,0.32)';
+
+    ctx.lineWidth = 1;
+
+    ctx.setLineDash([4,4]);
+
+    indexes.forEach(index=>{
+
+      const x =
+        xScale.getPixelForValue(index);
+
+      ctx.beginPath();
+      ctx.moveTo(x, area.top);
+      ctx.lineTo(x, area.bottom);
+      ctx.stroke();
+
+    });
+
+    ctx.restore();
+
+    if(!dayRanges.length){
+
+      return;
+
+    }
+
+    ctx.save();
+
+    ctx.fillStyle =
+      'rgba(255,255,255,0.78)';
+
+    ctx.font =
+      '700 12px Arial, sans-serif';
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+
+    dayRanges.forEach(range=>{
+
+      const startX =
+        xScale.getPixelForValue(range.start);
+
+      const endX =
+        xScale.getPixelForValue(range.end);
+
+      const x =
+        (startX + endX) / 2;
+
+      ctx.fillText(
+        range.label,
+        x,
+        area.bottom + 28
+      );
+
+    });
+
+    ctx.restore();
+
+  }
+
+};
+
+Chart.register(midnightLinePlugin);
+
 function refreshChartTimeTicks(){
 
   [
@@ -1785,6 +2063,8 @@ function refreshChartTimeTicks(){
     windChart,
     humidityChart,
     pressureChart,
+    uvChart,
+    cloudCoverChart,
     precipChart,
     rainAmountChart
   ].forEach(chart=>{
@@ -1828,24 +2108,15 @@ function createChart(
   data,
   color,
   type='line',
-  hourlyData=[]
+  hourlyData=[],
+  chartOptions={}
 ){
 
-  const labels = [];
-
-  for(let i=0;i<data.length;i++){
-
-    const t = new Date(
-      hourlyData[i] && hourlyData[i].dt
-        ? hourlyData[i].dt * 1000
-        : Date.now() + i * 60 * 60 * 1000
+  const labels =
+    getChartLabels(
+      data,
+      hourlyData
     );
-
-    labels.push(
-      formatChartHour(t)
-    );
-
-  }
 
   const chart = new Chart(
 
@@ -1884,6 +2155,12 @@ function createChart(
         plugins:{
           legend:{
             display:false
+          },
+          midnightLinePlugin:{
+            indexes:getDayBoundaryIndexes(
+              data,
+              hourlyData
+            )
           }
         },
 
@@ -1909,6 +2186,8 @@ function createChart(
           },
 
           y:{
+
+            ...(chartOptions.y || {}),
 
             ticks:{
               color:'rgba(255,255,255,0.6)'
@@ -2031,29 +2310,62 @@ function togglePrecipRain(){
 
 function togglePressureUv(){
 
-  showingPressure =
-    !showingPressure;
+  pressureChartIndex =
+    (pressureChartIndex + 1) % 3;
+
+  updatePressureChartDisplay();
+
+}
+
+function getPressureChartMetric(){
+
+  return [
+    'Pressure',
+    'UV Index',
+    'Cloud Cover'
+  ][pressureChartIndex];
+
+}
+
+function getPressureChartCanvasId(){
+
+  return [
+    'pressureChart',
+    'uvChart',
+    'cloudCoverChart'
+  ][pressureChartIndex];
+
+}
+
+function updatePressureChartDisplay(){
 
   document.getElementById(
     'pressurePanel'
   ).style.display =
-    showingPressure
+    pressureChartIndex === 0
       ? 'block'
       : 'none';
 
   document.getElementById(
     'uvPanel'
   ).style.display =
-    showingPressure
-      ? 'none'
-      : 'block';
+    pressureChartIndex === 1
+      ? 'block'
+      : 'none';
+
+  document.getElementById(
+    'cloudCoverPanel'
+  ).style.display =
+    pressureChartIndex === 2
+      ? 'block'
+      : 'none';
 
   document.querySelector(
     '#pressureTitle span'
   ).innerText =
-    showingPressure
-      ? getChartTitle('Pressure')
-      : getChartTitle('UV Index');
+    getChartTitle(
+      getPressureChartMetric()
+    );
 
   updateChartNextLabels();
 
@@ -2067,6 +2379,7 @@ function getChartTitle(metric){
     'Feels Like':'Feels',
     'Chance of Precipitation':'Precip',
     'Precipitation Amount':'Precip',
+    'Cloud Cover':'Clouds',
     'UV Index':'UV'
 
   };
@@ -2080,6 +2393,7 @@ function getChartTitle(metric){
     'Pressure':'hPa',
     'Chance of Precipitation':'%',
     'Precipitation Amount':'in',
+    'Cloud Cover':'%',
     'UV Index':'index'
 
   };
@@ -2110,10 +2424,28 @@ function updateChartNextLabels(){
     showingWind ? 'Humidity' : 'Wind'
   );
 
+  const pressureNextMetrics = [
+    {
+      label:'UV',
+      title:'UV Index'
+    },
+    {
+      label:'CLD',
+      title:'Cloud Cover'
+    },
+    {
+      label:'PRES',
+      title:'Pressure'
+    }
+  ];
+
+  const pressureNext =
+    pressureNextMetrics[pressureChartIndex];
+
   setChartNextLabel(
     'pressureUvNext',
-    showingPressure ? 'UV' : 'PRES',
-    showingPressure ? 'UV Index' : 'Pressure'
+    pressureNext.label,
+    pressureNext.title
   );
 
   setChartNextLabel(
@@ -2158,9 +2490,9 @@ function updateChartTitles(){
   document.querySelector(
     '#pressureTitle span'
   ).innerText =
-    showingPressure
-      ? getChartTitle('Pressure')
-      : getChartTitle('UV Index');
+    getChartTitle(
+      getPressureChartMetric()
+    );
 
   document.querySelector(
     '#precipRainTitle span'
@@ -2505,6 +2837,66 @@ async function fetchGoogleWeather(endpoint,lat,lon,params){
 
 }
 
+async function fetchGoogleWeatherPages(
+  endpoint,
+  lat,
+  lon,
+  params,
+  collectionKey,
+  targetCount
+){
+
+  const firstPage =
+    await fetchGoogleWeather(
+      endpoint,
+      lat,
+      lon,
+      params
+    );
+
+  const combinedItems =
+    [
+      ...(firstPage[collectionKey] || [])
+    ];
+
+  let nextPageToken =
+    firstPage.nextPageToken;
+
+  while(
+    nextPageToken &&
+    combinedItems.length < targetCount
+  ){
+
+    const nextPage =
+      await fetchGoogleWeather(
+        endpoint,
+        lat,
+        lon,
+        {
+          ...params,
+          pageToken:nextPageToken
+        }
+      );
+
+    combinedItems.push(
+      ...(nextPage[collectionKey] || [])
+    );
+
+    nextPageToken =
+      nextPage.nextPageToken;
+
+  }
+
+  return {
+    ...firstPage,
+    [collectionKey]:combinedItems.slice(
+      0,
+      targetCount
+    )
+  };
+
+}
+
 function conditionText(condition){
 
   return condition &&
@@ -2710,14 +3102,16 @@ async function loadWeather(lat,lon){
         lat,
         lon
       ),
-      fetchGoogleWeather(
+      fetchGoogleWeatherPages(
         'forecast/hours',
         lat,
         lon,
         {
-          hours:48,
+          hours:EXPANDED_CHART_HOURS,
           pageSize:24
-        }
+        },
+        'forecastHours',
+        EXPANDED_CHART_HOURS
       ),
       fetchGoogleWeather(
         'forecast/days',
@@ -2821,6 +3215,69 @@ async function loadWeather(lat,lon){
 // CHART RENDER
 // ======================================
 
+function getChartSeries(canvasId,hourlyData){
+
+  const series = {
+
+    tempChart:{
+      data:hourlyData.map(h=>h.temp),
+      color:'#33d1ff'
+    },
+    feelsLikeChart:{
+      data:hourlyData.map(h=>h.feels_like),
+      color:'#f97316'
+    },
+    windChart:{
+      data:hourlyData.map(h=>h.wind_speed),
+      color:'#5f7dff'
+    },
+    humidityChart:{
+      data:hourlyData.map(h=>h.humidity),
+      color:'#8b5cf6'
+    },
+    pressureChart:{
+      data:hourlyData.map(h=>h.pressure),
+      color:'#ffc857'
+    },
+    uvChart:{
+      data:hourlyData.map(h=>h.uvi || 0),
+      color:'#f43f5e'
+    },
+    cloudCoverChart:{
+      data:hourlyData.map(h=>h.clouds || 0),
+      color:'#94a3b8',
+      options:{
+        y:{
+          min:0,
+          max:100
+        }
+      }
+    },
+    precipChart:{
+      data:hourlyData.map(h=>
+        Math.round((h.pop || 0) * 100)
+      ),
+      color:'#4ade80',
+      options:{
+        y:{
+          min:0,
+          max:100
+        }
+      }
+    },
+    rainAmountChart:{
+      data:hourlyData.map(h=>
+        getPrecipAmountInches(h)
+      ),
+      color:'#22c55e'
+    }
+
+  };
+
+  return series[canvasId];
+
+}
+
 function renderCharts(data){
 
   destroyCharts();
@@ -2878,6 +3335,20 @@ function renderCharts(data){
     hourlyData
   );
 
+  cloudCoverChart = createChart(
+    'cloudCoverChart',
+    hourlyData.map(h=>h.clouds || 0),
+    '#94a3b8',
+    'line',
+    hourlyData,
+    {
+      y:{
+        min:0,
+        max:100
+      }
+    }
+  );
+
   precipChart = createChart(
     'precipChart',
     hourlyData.map(h=>
@@ -2885,7 +3356,13 @@ function renderCharts(data){
     ),
     '#4ade80',
     'line',
-    hourlyData
+    hourlyData,
+    {
+      y:{
+        min:0,
+        max:100
+      }
+    }
   );
 
   rainAmountChart = createChart(
@@ -3007,6 +3484,80 @@ function openChartModal(canvasId){
 
     }
 
+    const expandedHourlyData =
+      latestWeatherData
+        ? latestWeatherData.hourly.slice(
+          0,
+          EXPANDED_CHART_HOURS
+        )
+        : [];
+
+    const expandedSeries =
+      expandedHourlyData.length
+        ? getChartSeries(
+          canvasId,
+          expandedHourlyData
+        )
+        : null;
+
+    const modalData =
+      expandedSeries
+        ? {
+          labels:getExpandedChartLabels(
+            expandedSeries.data,
+            expandedHourlyData
+          ),
+          datasets:[{
+            data:expandedSeries.data,
+            borderColor:expandedSeries.color,
+            backgroundColor:expandedSeries.color,
+            borderWidth:2,
+            tension:0.35,
+            fill:false
+          }]
+        }
+        : chartData.data;
+
+    const modalOptions =
+      expandedSeries
+        ? {
+          ...chartData.options,
+          responsive:true,
+          maintainAspectRatio:false,
+          plugins:{
+            ...chartData.options.plugins,
+            midnightLinePlugin:{
+              indexes:getDayBoundaryIndexes(
+                expandedSeries.data,
+                expandedHourlyData
+              ),
+              dayRanges:getChartDayRanges(
+                expandedSeries.data,
+                expandedHourlyData
+              )
+            }
+          },
+          scales:{
+            ...chartData.options.scales,
+            x:{
+              ...chartData.options.scales.x,
+              ticks:{
+                ...chartData.options.scales.x.ticks,
+                maxTicksLimit:16
+              }
+            },
+            y:{
+              ...chartData.options.scales.y,
+              ...((expandedSeries.options || {}).y || {})
+            }
+          }
+        }
+        : {
+          ...chartData.options,
+          responsive:true,
+          maintainAspectRatio:false
+        };
+
     modalChartInstance = new Chart(
 
       modalCanvas,
@@ -3015,17 +3566,9 @@ function openChartModal(canvasId){
 
         type: chartData.type,
 
-        data: chartData.data,
+        data: modalData,
 
-        options: {
-
-          ...chartData.options,
-
-          responsive: true,
-
-          maintainAspectRatio: false
-
-        }
+        options: modalOptions
 
       }
 
@@ -3571,7 +4114,7 @@ function formatGeocodeName(result,zip){
 
 }
 
-async function geocodeZipCode(zip){
+async function geocodeZipCodeWithGoogle(zip){
 
   const url =
     new URL(
@@ -3630,6 +4173,78 @@ async function geocodeZipCode(zip){
 
 }
 
+async function geocodeZipCodeWithFallback(zip){
+
+  const response =
+    await fetch(
+      `https://api.zippopotam.us/us/${encodeURIComponent(zip)}`
+    );
+
+  if(!response.ok){
+
+    throw new Error(
+      `No location found for ${zip}`
+    );
+
+  }
+
+  const data =
+    await response.json();
+
+  if(!data.places || !data.places.length){
+
+    throw new Error(
+      `No location found for ${zip}`
+    );
+
+  }
+
+  const place =
+    data.places[0];
+
+  return {
+
+    lat:Number(place.latitude),
+    lon:Number(place.longitude),
+    name:`${place['place name']}, ${place['state abbreviation']}`
+
+  };
+
+}
+
+async function geocodeZipCode(zip){
+
+  try{
+
+    return await geocodeZipCodeWithGoogle(zip);
+
+  }
+  catch(googleErr){
+
+    console.log(googleErr);
+
+    return geocodeZipCodeWithFallback(zip);
+
+  }
+
+}
+
+function setZipStatus(message){
+
+  const status =
+    document.getElementById(
+      'zipStatus'
+    );
+
+  if(status){
+
+    status.innerText =
+      message || '';
+
+  }
+
+}
+
 async function changeZipCode(){
 
   const zip =
@@ -3639,11 +4254,30 @@ async function changeZipCode(){
 
   if(!zip){
 
+    setZipStatus(
+      'Enter a ZIP code.'
+    );
+
     return;
 
   }
 
+  const zipButton =
+    document.getElementById(
+      'zipGoButton'
+    );
+
   try{
+
+    setZipStatus(
+      'Loading...'
+    );
+
+    if(zipButton){
+
+      zipButton.disabled = true;
+
+    }
 
     const geo =
       await geocodeZipCode(zip);
@@ -3671,6 +4305,8 @@ async function changeZipCode(){
       geo.lon
     );
 
+    setZipStatus('');
+
     closeSettingsPopup();
 
   }
@@ -3678,6 +4314,20 @@ async function changeZipCode(){
   catch(err){
 
     console.log(err);
+
+    setZipStatus(
+      err.message || 'ZIP lookup failed.'
+    );
+
+  }
+
+  finally{
+
+    if(zipButton){
+
+      zipButton.disabled = false;
+
+    }
 
   }
 
