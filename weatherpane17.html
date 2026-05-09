@@ -622,6 +622,102 @@ canvas{
   width:auto;
 }
 
+.settings-screen{
+  display:none;
+}
+
+.settings-screen.active{
+  display:block;
+}
+
+.settings-nav-btn{
+  width:100%;
+  min-height:38px;
+  margin-top:12px;
+  border:none;
+  border-radius:10px;
+  background:rgba(255,255,255,0.1);
+  color:white;
+  font-weight:bold;
+  cursor:pointer;
+}
+
+.settings-nav-btn:hover{
+  background:rgba(255,255,255,0.18);
+}
+
+.settings-back-btn{
+  width:30px;
+  height:30px;
+  border:none;
+  border-radius:8px;
+  background:rgba(255,255,255,0.1);
+  color:white;
+  cursor:pointer;
+  font-size:18px;
+  margin-right:8px;
+}
+
+.settings-title-left{
+  display:flex;
+  align-items:center;
+  min-width:0;
+}
+
+.current-panel-settings{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+}
+
+.current-panel-group{
+  background:rgba(255,255,255,0.05);
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius:12px;
+  padding:12px;
+}
+
+.current-panel-heading{
+  font-size:12px;
+  font-weight:bold;
+  margin-bottom:10px;
+  opacity:0.82;
+}
+
+.parameter-option{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-height:28px;
+  font-size:12px;
+  cursor:pointer;
+}
+
+.parameter-option input{
+  accent-color:#33d1ff;
+}
+
+.settings-actions{
+  display:flex;
+  justify-content:flex-end;
+  margin-top:12px;
+}
+
+.settings-action-btn{
+  min-height:34px;
+  border:none;
+  border-radius:9px;
+  padding:0 12px;
+  background:#33d1ff;
+  color:#07111f;
+  font-weight:bold;
+  cursor:pointer;
+}
+
+.current-fixed-metric{
+  text-align:left;
+}
+
 .modal-overlay{
   display:none;
   position:fixed;
@@ -939,6 +1035,10 @@ canvas{
   .forecast-layout{
     grid-template-columns:minmax(0,1fr) 38px;
     gap:6px;
+  }
+
+  .current-panel-settings{
+    grid-template-columns:1fr;
   }
 
 }
@@ -1353,85 +1453,139 @@ canvas{
       onclick="event.stopPropagation()"
     >
 
-      <div class="settings-title">
-        <span>Weather Settings</span>
-        <button
-          class="settings-close"
-          onclick="closeSettingsPopup()"
-        >
-          ×
-        </button>
-      </div>
+      <div
+        id="settingsMainScreen"
+        class="settings-screen active"
+      >
 
-      <div class="settings-field">
-        <label for="chartSpanSelect">Chart Span</label>
-        <div class="chart-span-control">
-          <select
-            id="chartSpanSelect"
-            onchange="changeChartSpan()"
-          >
-            <option value="12">12h</option>
-            <option value="24" selected>24h</option>
-            <option value="36">36h</option>
-            <option value="48">48h</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="settings-field">
-        <label for="radarCloudIntervalSelect">Radar/Cloud</label>
-        <div class="chart-span-control">
-          <select
-            id="radarCloudIntervalSelect"
-            onchange="changeRadarCloudInterval()"
-          >
-            <option value="60">1 min</option>
-            <option value="300" selected>5 min</option>
-            <option value="600">10 min</option>
-            <option value="900">15 min</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="settings-field">
-        <label for="weatherIntervalSelect">Weather</label>
-        <div class="chart-span-control">
-          <select
-            id="weatherIntervalSelect"
-            onchange="changeWeatherInterval()"
-          >
-            <option value="5">5 min</option>
-            <option value="10" selected>10 min</option>
-            <option value="15">15 min</option>
-            <option value="30">30 min</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="settings-field">
-        <label for="zipInput">ZIP Code</label>
-        <div class="zip-search">
-
-          <input
-            id="zipInput"
-            type="text"
-            placeholder="ZIP"
-            maxlength="10"
-            onkeydown="handleZipKey(event)"
-          />
-
+        <div class="settings-title">
+          <span>Weather Settings</span>
           <button
-            id="zipGoButton"
-            onclick="changeZipCode()"
+            class="settings-close"
+            onclick="closeSettingsPopup()"
           >
-            Go
+            ×
           </button>
-
         </div>
+
+        <div class="settings-field">
+          <label for="chartSpanSelect">Chart Span</label>
+          <div class="chart-span-control">
+            <select
+              id="chartSpanSelect"
+              onchange="changeChartSpan()"
+            >
+              <option value="12">12h</option>
+              <option value="24" selected>24h</option>
+              <option value="36">36h</option>
+              <option value="48">48h</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="settings-field">
+          <label for="radarCloudIntervalSelect">Radar/Cloud</label>
+          <div class="chart-span-control">
+            <select
+              id="radarCloudIntervalSelect"
+              onchange="changeRadarCloudInterval()"
+            >
+              <option value="60">1 min</option>
+              <option value="300" selected>5 min</option>
+              <option value="600">10 min</option>
+              <option value="900">15 min</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="settings-field">
+          <label for="weatherIntervalSelect">Weather</label>
+          <div class="chart-span-control">
+            <select
+              id="weatherIntervalSelect"
+              onchange="changeWeatherInterval()"
+            >
+              <option value="5">5 min</option>
+              <option value="10" selected>10 min</option>
+              <option value="15">15 min</option>
+              <option value="30">30 min</option>
+            </select>
+          </div>
+        </div>
+
+        <button
+          class="settings-nav-btn"
+          onclick="showCurrentWeatherSettings()"
+        >
+          Current Weather Panels
+        </button>
+
+        <div class="settings-field">
+          <label for="zipInput">ZIP Code</label>
+          <div class="zip-search">
+
+            <input
+              id="zipInput"
+              type="text"
+              placeholder="ZIP"
+              maxlength="10"
+              onkeydown="handleZipKey(event)"
+            />
+
+            <button
+              id="zipGoButton"
+              onclick="changeZipCode()"
+            >
+              Go
+            </button>
+
+          </div>
+          <div
+            id="zipStatus"
+            class="zip-status"
+          ></div>
+        </div>
+
+      </div>
+
+      <div
+        id="settingsCurrentWeatherScreen"
+        class="settings-screen"
+      >
+
+        <div class="settings-title">
+          <div class="settings-title-left">
+            <button
+              class="settings-back-btn"
+              onclick="showMainSettings()"
+              title="Back"
+            >
+              ‹
+            </button>
+            <span>Current Weather Panels</span>
+          </div>
+          <button
+            class="settings-close"
+            onclick="closeSettingsPopup()"
+          >
+            ×
+          </button>
+        </div>
+
         <div
-          id="zipStatus"
-          class="zip-status"
+          id="currentWeatherPanelSettings"
+          class="current-panel-settings"
         ></div>
+
+        <div class="settings-actions">
+          <button
+            class="settings-action-btn"
+            onclick="resetCurrentWeatherPanelSettings()"
+          >
+            Defaults
+          </button>
+        </div>
+
       </div>
 
     </div>
@@ -1736,6 +1890,120 @@ let chartHourSpan = 24;
 let latestWeatherData = null;
 let weatherUpdateIntervalMinutes = 10;
 let weatherUpdateTimer = null;
+let currentLocationName = 'Wake Forest, NC';
+let currentWeatherStatus = 'Loading';
+
+const DEFAULT_CURRENT_PANEL_SELECTIONS = {
+  first:[
+    'temperature',
+    'wind_speed',
+    'humidity',
+    'pressure',
+    'feels_like'
+  ],
+  second:[
+    'conditions',
+    'high',
+    'low'
+  ]
+};
+
+let currentPanelSelections = {
+  first:[...DEFAULT_CURRENT_PANEL_SELECTIONS.first],
+  second:[...DEFAULT_CURRENT_PANEL_SELECTIONS.second]
+};
+
+const CURRENT_WEATHER_PARAMETERS = [
+  {
+    id:'temperature',
+    label:'Temperature',
+    value:data=>data
+      ? `${Math.round(data.current.temp)}°`
+      : '--'
+  },
+  {
+    id:'feels_like',
+    label:'Feels Like',
+    value:data=>data
+      ? `${Math.round(data.current.feels_like)}°`
+      : '--'
+  },
+  {
+    id:'wind_speed',
+    label:'Wind Speed/Gust',
+    value:data=>data
+      ? `${Math.round(data.current.wind_speed)}/${Math.round(data.current.wind_gust)} mph`
+      : '--'
+  },
+  {
+    id:'wind_direction',
+    label:'Wind Direction',
+    value:data=>data
+      ? degToCompass(data.current.wind_deg)
+      : '--'
+  },
+  {
+    id:'humidity',
+    label:'Humidity',
+    value:data=>data
+      ? `${data.current.humidity}%`
+      : '--'
+  },
+  {
+    id:'pressure',
+    label:'Pressure',
+    value:data=>data
+      ? `${data.current.pressure}`
+      : '--'
+  },
+  {
+    id:'rain_chance',
+    label:'Rain Chance',
+    value:data=>data && data.hourly[0]
+      ? `${Math.round((data.hourly[0].pop || 0) * 100)}%`
+      : '--'
+  },
+  {
+    id:'conditions',
+    label:'Conditions',
+    value:data=>data
+      ? data.current.weather[0].description
+      : currentWeatherStatus
+  },
+  {
+    id:'high',
+    label:'High',
+    value:data=>data && data.daily[0]
+      ? `${Math.round(data.daily[0].temp.max)}°`
+      : '--'
+  },
+  {
+    id:'low',
+    label:'Low',
+    value:data=>data && data.daily[0]
+      ? `${Math.round(data.daily[0].temp.min)}°`
+      : '--'
+  },
+];
+
+const FIXED_CURRENT_PANEL_PARAMETERS = [
+  {
+    id:'local_time',
+    label:'Local Time',
+    value:()=>new Date().toLocaleTimeString(
+      'en-US',
+      {
+        hour:'numeric',
+        minute:'2-digit'
+      }
+    )
+  },
+  {
+    id:'location',
+    label:'Location',
+    value:()=>currentLocationName
+  }
+];
 
 const EXPANDED_CHART_HOURS = 96;
 
@@ -2118,6 +2386,20 @@ function createChart(
       hourlyData
     );
 
+  const datasets =
+    [
+      {
+        label:chartOptions.label || 'Value',
+        data:data,
+        borderColor:color,
+        backgroundColor:color,
+        borderWidth:2,
+        tension:0.35,
+        fill:false
+      },
+      ...(chartOptions.extraDatasets || [])
+    ];
+
   const chart = new Chart(
 
     document.getElementById(id),
@@ -2130,20 +2412,7 @@ function createChart(
 
         labels:labels,
 
-        datasets:[{
-
-          data:data,
-
-          borderColor:color,
-          backgroundColor:color,
-
-          borderWidth:2,
-
-          tension:0.35,
-
-          fill:false
-
-        }]
+        datasets:datasets
 
       },
 
@@ -2154,7 +2423,15 @@ function createChart(
 
         plugins:{
           legend:{
-            display:false
+            display:chartOptions.legendDisplay || false,
+            labels:{
+              color:'rgba(255,255,255,0.72)',
+              boxWidth:10,
+              boxHeight:10,
+              font:{
+                size:10
+              }
+            }
           },
           midnightLinePlugin:{
             indexes:getDayBoundaryIndexes(
@@ -2377,6 +2654,7 @@ function getChartTitle(metric){
 
     'Temperature':'Temp',
     'Feels Like':'Feels',
+    'Wind':'Wind/Gust',
     'Chance of Precipitation':'Precip',
     'Precipitation Amount':'Precip',
     'Cloud Cover':'Clouds',
@@ -2553,7 +2831,241 @@ function changeWeatherInterval(){
 
 }
 
+function getCurrentWeatherParameter(parameterId){
+
+  return CURRENT_WEATHER_PARAMETERS.find(
+    parameter=>parameter.id === parameterId
+  );
+
+}
+
+function renderCurrentWeatherPanel(panelId,selection){
+
+  const panel =
+    document.getElementById(panelId);
+
+  if(!panel){
+
+    return;
+
+  }
+
+  const visibleSelection =
+    [
+      ...FIXED_CURRENT_PANEL_PARAMETERS,
+      ...selection
+        .map(getCurrentWeatherParameter)
+        .filter(Boolean)
+    ];
+
+  panel.innerHTML = '';
+
+  panel.style.gridTemplateColumns =
+    `repeat(${Math.max(visibleSelection.length, 1)}, minmax(64px, 1fr))`;
+
+  visibleSelection.forEach(parameter=>{
+
+    const metric =
+      document.createElement('div');
+
+    metric.className =
+      'metric header-support-metric';
+
+    if(
+      parameter.id === 'local_time' ||
+      parameter.id === 'location'
+    ){
+
+      metric.classList.add(
+        'current-fixed-metric'
+      );
+
+    }
+
+    const value =
+      parameter.value(latestWeatherData);
+
+    metric.innerHTML = `
+
+      <div class="metric-label">
+        ${parameter.label}
+      </div>
+
+      <div class="metric-value">
+        ${value}
+      </div>
+
+    `;
+
+    panel.appendChild(metric);
+
+  });
+
+}
+
+function renderCurrentWeatherPanels(){
+
+  renderCurrentWeatherPanel(
+    'headerOverview',
+    currentPanelSelections.first
+  );
+
+  renderCurrentWeatherPanel(
+    'headerConditions',
+    currentPanelSelections.second
+  );
+
+}
+
+function renderCurrentWeatherPanelSettings(){
+
+  const container =
+    document.getElementById(
+      'currentWeatherPanelSettings'
+    );
+
+  if(!container){
+
+    return;
+
+  }
+
+  container.innerHTML = '';
+
+  [
+    {
+      key:'first',
+      title:'First Panel'
+    },
+    {
+      key:'second',
+      title:'Second Panel'
+    }
+  ].forEach(panel=>{
+
+    const group =
+      document.createElement('div');
+
+    group.className =
+      'current-panel-group';
+
+    group.innerHTML = `
+
+      <div class="current-panel-heading">
+        ${panel.title}
+      </div>
+
+    `;
+
+    CURRENT_WEATHER_PARAMETERS.forEach(parameter=>{
+
+      const label =
+        document.createElement('label');
+
+      label.className =
+        'parameter-option';
+
+      const checked =
+        currentPanelSelections[panel.key].includes(
+          parameter.id
+        );
+
+      label.innerHTML = `
+
+        <input
+          type="checkbox"
+          ${checked ? 'checked' : ''}
+          onchange="changeCurrentPanelSetting('${panel.key}','${parameter.id}',this.checked)"
+        />
+        <span>${parameter.label}</span>
+
+      `;
+
+      group.appendChild(label);
+
+    });
+
+    container.appendChild(group);
+
+  });
+
+}
+
+function changeCurrentPanelSetting(panelKey,parameterId,isChecked){
+
+  const selection =
+    currentPanelSelections[panelKey];
+
+  if(isChecked){
+
+    if(!selection.includes(parameterId)){
+
+      selection.push(parameterId);
+
+    }
+
+  }
+  else if(selection.length > 1){
+
+    currentPanelSelections[panelKey] =
+      selection.filter(id=>id !== parameterId);
+
+  }
+
+  renderCurrentWeatherPanels();
+  renderCurrentWeatherPanelSettings();
+
+}
+
+function resetCurrentWeatherPanelSettings(){
+
+  currentPanelSelections = {
+    first:[...DEFAULT_CURRENT_PANEL_SELECTIONS.first],
+    second:[...DEFAULT_CURRENT_PANEL_SELECTIONS.second]
+  };
+
+  renderCurrentWeatherPanels();
+  renderCurrentWeatherPanelSettings();
+
+}
+
+function showCurrentWeatherSettings(){
+
+  document.getElementById(
+    'settingsMainScreen'
+  ).classList.remove(
+    'active'
+  );
+
+  document.getElementById(
+    'settingsCurrentWeatherScreen'
+  ).classList.add(
+    'active'
+  );
+
+  renderCurrentWeatherPanelSettings();
+
+}
+
+function showMainSettings(){
+
+  document.getElementById(
+    'settingsCurrentWeatherScreen'
+  ).classList.remove(
+    'active'
+  );
+
+  document.getElementById(
+    'settingsMainScreen'
+  ).classList.add(
+    'active'
+  );
+
+}
+
 function openSettingsPopup(){
+
+  showMainSettings();
 
   document.getElementById(
     'settingsOverlay'
@@ -2923,6 +3435,69 @@ function temperatureDegrees(value){
 
 }
 
+function windValue(wind,valueName){
+
+  if(!wind){
+
+    return 0;
+
+  }
+
+  const value =
+    wind[valueName] ||
+    wind[`${valueName}Speed`];
+
+  return value && typeof value.value === 'number'
+    ? value.value
+    : 0;
+
+}
+
+function windGustValue(period){
+
+  if(!period){
+
+    return 0;
+
+  }
+
+  if(typeof period.wind_gust === 'number'){
+
+    return period.wind_gust;
+
+  }
+
+  const directGust =
+    period.windGust ||
+    period.wind_gust_speed;
+
+  if(directGust && typeof directGust.value === 'number'){
+
+    return directGust.value;
+
+  }
+
+  const wind =
+    period.wind || {};
+
+  const gust =
+    wind.gust ||
+    wind.windGust ||
+    wind.gustSpeed;
+
+  if(gust && typeof gust.value === 'number'){
+
+    return gust.value;
+
+  }
+
+  return windValue(
+    wind,
+    'speed'
+  );
+
+}
+
 function precipProbability(value){
 
   return value &&
@@ -2967,9 +3542,11 @@ function normalizeGoogleHour(hour){
     uvi:hour.uvIndex || 0,
     pop:precipProbability(hour.precipitation),
     qpf_inches:precipQuantityInches(hour.precipitation),
-    wind_speed:hour.wind && hour.wind.speed
-      ? hour.wind.speed.value
-      : 0,
+    wind_speed:windValue(
+      hour.wind,
+      'speed'
+    ),
+    wind_gust:windGustValue(hour),
     wind_deg:hour.wind && hour.wind.direction
       ? hour.wind.direction.degrees
       : 0,
@@ -3023,9 +3600,11 @@ function normalizeGoogleDay(day){
     qpf_inches:
       precipQuantityInches(dayPart.precipitation) +
       precipQuantityInches(nightPart.precipitation),
-    wind_speed:dayPart.wind && dayPart.wind.speed
-      ? dayPart.wind.speed.value
-      : 0,
+    wind_speed:windValue(
+      dayPart.wind,
+      'speed'
+    ),
+    wind_gust:windGustValue(dayPart),
     wind_deg:dayPart.wind && dayPart.wind.direction
       ? dayPart.wind.direction.degrees
       : 0
@@ -3056,15 +3635,20 @@ function normalizeGoogleWeatherData(current,hourly,daily){
         }
       ],
       temp:temperatureDegrees(current.temperature),
+      feels_like:temperatureDegrees(
+        current.feelsLikeTemperature || current.temperature
+      ),
       humidity:current.relativeHumidity || 0,
       pressure:Math.round(
         current.airPressure
           ? current.airPressure.meanSeaLevelMillibars
           : 0
       ),
-      wind_speed:current.wind && current.wind.speed
-        ? current.wind.speed.value
-        : 0,
+      wind_speed:windValue(
+        current.wind,
+        'speed'
+      ),
+      wind_gust:windGustValue(current),
       wind_deg:current.wind && current.wind.direction
         ? current.wind.direction.degrees
         : 0
@@ -3140,52 +3724,11 @@ async function loadWeather(lat,lon){
 
     }
 
-    document.getElementById(
-      'weatherSummary'
-    ).innerText =
+    latestWeatherData = data;
+    currentWeatherStatus =
       data.current.weather[0].description;
 
-    document.getElementById(
-      'highMetric'
-    ).innerText =
-      `${Math.round(data.daily[0].temp.max)}°`;
-
-    document.getElementById(
-      'lowMetric'
-    ).innerText =
-      `${Math.round(data.daily[0].temp.min)}°`;
-
-    document.getElementById(
-      'tempMetric'
-    ).innerText =
-      `${Math.round(data.current.temp)}°`;
-
-    document.getElementById(
-      'humidityMetric'
-    ).innerText =
-      `${data.current.humidity}%`;
-
-    document.getElementById(
-      'pressureMetric'
-    ).innerText =
-      `${data.current.pressure}`;
-
-    document.getElementById(
-      'rainMetric'
-    ).innerText =
-      `${Math.round(
-        (data.hourly[0].pop || 0) * 100
-      )}%`;
-
-    document.getElementById(
-      'windSpeedMetric'
-    ).innerText =
-      `${Math.round(data.current.wind_speed)} mph`;
-
-    document.getElementById(
-      'windDirMetric'
-    ).innerText =
-      degToCompass(data.current.wind_deg);
+    renderCurrentWeatherPanels();
 
     renderCharts(data);
 
@@ -3197,15 +3740,11 @@ async function loadWeather(lat,lon){
 
     console.error(err);
 
-    document.getElementById(
-      'weatherSummary'
-    ).innerText =
+    latestWeatherData = null;
+    currentWeatherStatus =
       err.message || 'Weather unavailable';
 
-    document.getElementById(
-      'tempMetric'
-    ).innerText =
-      '--';
+    renderCurrentWeatherPanels();
 
   }
 
@@ -3229,7 +3768,28 @@ function getChartSeries(canvasId,hourlyData){
     },
     windChart:{
       data:hourlyData.map(h=>h.wind_speed),
-      color:'#5f7dff'
+      color:'#5f7dff',
+      datasets:[
+        {
+          label:'Speed',
+          data:hourlyData.map(h=>h.wind_speed),
+          borderColor:'#5f7dff',
+          backgroundColor:'#5f7dff',
+          borderWidth:2,
+          tension:0.35,
+          fill:false
+        },
+        {
+          label:'Gust',
+          data:hourlyData.map(h=>h.wind_gust),
+          borderColor:'#f59e0b',
+          backgroundColor:'#f59e0b',
+          borderWidth:2,
+          borderDash:[4,3],
+          tension:0.35,
+          fill:false
+        }
+      ]
     },
     humidityChart:{
       data:hourlyData.map(h=>h.humidity),
@@ -3308,7 +3868,23 @@ function renderCharts(data){
     hourlyData.map(h=>h.wind_speed),
     '#5f7dff',
     'line',
-    hourlyData
+    hourlyData,
+    {
+      label:'Speed',
+      legendDisplay:true,
+      extraDatasets:[
+        {
+          label:'Gust',
+          data:hourlyData.map(h=>h.wind_gust),
+          borderColor:'#f59e0b',
+          backgroundColor:'#f59e0b',
+          borderWidth:2,
+          borderDash:[4,3],
+          tension:0.35,
+          fill:false
+        }
+      ]
+    }
   );
 
   humidityChart = createChart(
@@ -3507,7 +4083,8 @@ function openChartModal(canvasId){
             expandedSeries.data,
             expandedHourlyData
           ),
-          datasets:[{
+          datasets:expandedSeries.datasets || [{
+            label:'Value',
             data:expandedSeries.data,
             borderColor:expandedSeries.color,
             backgroundColor:expandedSeries.color,
@@ -4285,10 +4862,10 @@ async function changeZipCode(){
     currentLat = geo.lat;
     currentLon = geo.lon;
 
-    document.getElementById(
-      'locationMetric'
-    ).innerText =
+    currentLocationName =
       geo.name || zip;
+
+    renderCurrentWeatherPanels();
 
     map.setView(
       [geo.lat, geo.lon],
@@ -4365,16 +4942,7 @@ function startWeatherUpdates(){
 
 function updateLocalTime(){
 
-  document.getElementById(
-    'timeMetric'
-  ).innerText =
-    new Date().toLocaleTimeString(
-      'en-US',
-      {
-        hour:'numeric',
-        minute:'2-digit'
-      }
-    );
+  renderCurrentWeatherPanels();
 
 }
 
@@ -4419,10 +4987,10 @@ function startLocalTimeUpdates(){
         currentLat = lat;
         currentLon = lon;
 
-        document.getElementById(
-          'locationMetric'
-        ).innerText =
+        currentLocationName =
           'Current Location';
+
+        renderCurrentWeatherPanels();
 
         map.setView(
           [lat,lon],
