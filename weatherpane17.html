@@ -690,11 +690,40 @@ canvas{
   gap:8px;
   min-height:28px;
   font-size:12px;
-  cursor:pointer;
 }
 
 .parameter-option input{
   accent-color:#33d1ff;
+}
+
+.parameter-option span{
+  flex:1;
+  min-width:0;
+}
+
+.parameter-order-actions{
+  display:flex;
+  gap:4px;
+}
+
+.parameter-order-btn{
+  width:24px;
+  height:24px;
+  border:none;
+  border-radius:6px;
+  background:rgba(255,255,255,0.1);
+  color:white;
+  cursor:pointer;
+  line-height:1;
+}
+
+.parameter-order-btn:hover:not(:disabled){
+  background:rgba(255,255,255,0.18);
+}
+
+.parameter-order-btn:disabled{
+  cursor:default;
+  opacity:0.28;
 }
 
 .settings-actions{
@@ -1895,6 +1924,8 @@ let currentWeatherStatus = 'Loading';
 
 const DEFAULT_CURRENT_PANEL_SELECTIONS = {
   first:[
+    'local_time',
+    'location',
     'temperature',
     'wind_speed',
     'humidity',
@@ -1914,6 +1945,29 @@ let currentPanelSelections = {
 };
 
 const CURRENT_WEATHER_PARAMETERS = [
+  {
+    id:'local_time',
+    label:'Local Time',
+    value:()=>new Date().toLocaleTimeString(
+      'en-US',
+      {
+        hour:'numeric',
+        minute:'2-digit'
+      }
+    )
+  },
+  {
+    id:'location',
+    label:'Location',
+    value:()=>currentLocationName
+  },
+  {
+    id:'temperature_feels_like',
+    label:'Temperature/Feels Like',
+    value:data=>data
+      ? `${Math.round(data.current.temp)}°/${Math.round(data.current.feels_like)}°`
+      : '--'
+  },
   {
     id:'temperature',
     label:'Temperature',
@@ -1984,25 +2038,6 @@ const CURRENT_WEATHER_PARAMETERS = [
       ? `${Math.round(data.daily[0].temp.min)}°`
       : '--'
   },
-];
-
-const FIXED_CURRENT_PANEL_PARAMETERS = [
-  {
-    id:'local_time',
-    label:'Local Time',
-    value:()=>new Date().toLocaleTimeString(
-      'en-US',
-      {
-        hour:'numeric',
-        minute:'2-digit'
-      }
-    )
-  },
-  {
-    id:'location',
-    label:'Location',
-    value:()=>currentLocationName
-  }
 ];
 
 const EXPANDED_CHART_HOURS = 96;
@@ -2850,13 +2885,43 @@ function renderCurrentWeatherPanel(panelId,selection){
 
   }
 
+  let hasCombinedTemperature =
+    false;
+
+  const panelSelection =
+    selection.reduce((parameters,parameterId)=>{
+
+      if(
+        (
+          parameterId === 'temperature' ||
+          parameterId === 'feels_like'
+        ) &&
+        selection.includes('temperature') &&
+        selection.includes('feels_like')
+      ){
+
+        if(!hasCombinedTemperature){
+
+          parameters.push('temperature_feels_like');
+
+          hasCombinedTemperature = true;
+
+        }
+
+        return parameters;
+
+      }
+
+      parameters.push(parameterId);
+
+      return parameters;
+
+    },[]);
+
   const visibleSelection =
-    [
-      ...FIXED_CURRENT_PANEL_PARAMETERS,
-      ...selection
-        .map(getCurrentWeatherParameter)
-        .filter(Boolean)
-    ];
+    panelSelection
+      .map(getCurrentWeatherParameter)
+      .filter(Boolean);
 
   panel.innerHTML = '';
 
@@ -2957,20 +3022,43 @@ function renderCurrentWeatherPanelSettings(){
 
     `;
 
-    CURRENT_WEATHER_PARAMETERS.forEach(parameter=>{
+    const availableParameters =
+      CURRENT_WEATHER_PARAMETERS.filter(
+        parameter=>parameter.id !== 'temperature_feels_like'
+      );
 
-      const label =
-        document.createElement('label');
+    const selectedIds =
+      currentPanelSelections[panel.key].filter(
+        parameterId=>availableParameters.some(
+          parameter=>parameter.id === parameterId
+        )
+      );
 
-      label.className =
+    const orderedParameters =
+      [
+        ...selectedIds
+          .map(getCurrentWeatherParameter)
+          .filter(Boolean),
+        ...availableParameters.filter(
+          parameter=>!selectedIds.includes(parameter.id)
+        )
+      ];
+
+    orderedParameters.forEach(parameter=>{
+
+      const option =
+        document.createElement('div');
+
+      option.className =
         'parameter-option';
 
       const checked =
-        currentPanelSelections[panel.key].includes(
-          parameter.id
-        );
+        selectedIds.includes(parameter.id);
 
-      label.innerHTML = `
+      const selectedIndex =
+        selectedIds.indexOf(parameter.id);
+
+      option.innerHTML = `
 
         <input
           type="checkbox"
@@ -2978,16 +3066,81 @@ function renderCurrentWeatherPanelSettings(){
           onchange="changeCurrentPanelSetting('${panel.key}','${parameter.id}',this.checked)"
         />
         <span>${parameter.label}</span>
+        <div class="parameter-order-actions">
+          <button
+            type="button"
+            class="parameter-order-btn"
+            title="Move left"
+            ${!checked || selectedIndex === 0 ? 'disabled' : ''}
+            onclick="moveCurrentPanelParameter('${panel.key}','${parameter.id}',-1)"
+          >
+            ↑
+          </button>
+          <button
+            type="button"
+            class="parameter-order-btn"
+            title="Move right"
+            ${!checked || selectedIndex === selectedIds.length - 1 ? 'disabled' : ''}
+            onclick="moveCurrentPanelParameter('${panel.key}','${parameter.id}',1)"
+          >
+            ↓
+          </button>
+        </div>
 
       `;
 
-      group.appendChild(label);
+      group.appendChild(option);
 
     });
 
     container.appendChild(group);
 
   });
+
+}
+
+function moveCurrentPanelParameter(panelKey,parameterId,direction){
+
+  const selection =
+    currentPanelSelections[panelKey];
+
+  const currentIndex =
+    selection.indexOf(parameterId);
+
+  if(currentIndex === -1){
+
+    return;
+
+  }
+
+  const nextIndex =
+    currentIndex + direction;
+
+  if(
+    nextIndex < 0 ||
+    nextIndex >= selection.length
+  ){
+
+    return;
+
+  }
+
+  const nextSelection =
+    [...selection];
+
+  [
+    nextSelection[currentIndex],
+    nextSelection[nextIndex]
+  ] = [
+    nextSelection[nextIndex],
+    nextSelection[currentIndex]
+  ];
+
+  currentPanelSelections[panelKey] =
+    nextSelection;
+
+  renderCurrentWeatherPanels();
+  renderCurrentWeatherPanelSettings();
 
 }
 
