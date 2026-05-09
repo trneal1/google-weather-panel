@@ -729,6 +729,7 @@ canvas{
 .settings-actions{
   display:flex;
   justify-content:flex-end;
+  gap:8px;
   margin-top:12px;
 }
 
@@ -1609,6 +1610,12 @@ canvas{
         <div class="settings-actions">
           <button
             class="settings-action-btn"
+            onclick="saveCurrentWeatherPanelDefaults()"
+          >
+            Save Defaults
+          </button>
+          <button
+            class="settings-action-btn"
             onclick="resetCurrentWeatherPanelSettings()"
           >
             Defaults
@@ -1922,6 +1929,9 @@ let weatherUpdateTimer = null;
 let currentLocationName = 'Wake Forest, NC';
 let currentWeatherStatus = 'Loading';
 
+const CURRENT_PANEL_DEFAULTS_STORAGE_KEY =
+  'weatherDashboardCurrentPanelDefaults';
+
 const DEFAULT_CURRENT_PANEL_SELECTIONS = {
   first:[
     'local_time',
@@ -2041,6 +2051,9 @@ const CURRENT_WEATHER_PARAMETERS = [
 ];
 
 const EXPANDED_CHART_HOURS = 96;
+
+currentPanelSelections =
+  loadCurrentWeatherPanelDefaults();
 
 // ======================================
 // DESTROY
@@ -2874,6 +2887,118 @@ function getCurrentWeatherParameter(parameterId){
 
 }
 
+function cloneCurrentPanelSelections(selections){
+
+  return {
+    first:[...selections.first],
+    second:[...selections.second]
+  };
+
+}
+
+function getConfigurableCurrentWeatherParameterIds(){
+
+  return CURRENT_WEATHER_PARAMETERS
+    .filter(parameter=>parameter.id !== 'temperature_feels_like')
+    .map(parameter=>parameter.id);
+
+}
+
+function normalizeCurrentPanelSelection(selection,defaults,availableIds){
+
+  const normalized =
+    Array.isArray(selection)
+      ? selection.filter((parameterId,index,allIds)=>
+        availableIds.includes(parameterId) &&
+        allIds.indexOf(parameterId) === index
+      )
+      : [];
+
+  return normalized.length
+    ? normalized
+    : [...defaults];
+
+}
+
+function normalizeCurrentPanelSelections(selections){
+
+  const availableIds =
+    getConfigurableCurrentWeatherParameterIds();
+
+  return {
+    first:normalizeCurrentPanelSelection(
+      selections && selections.first,
+      DEFAULT_CURRENT_PANEL_SELECTIONS.first,
+      availableIds
+    ),
+    second:normalizeCurrentPanelSelection(
+      selections && selections.second,
+      DEFAULT_CURRENT_PANEL_SELECTIONS.second,
+      availableIds
+    )
+  };
+
+}
+
+function loadCurrentWeatherPanelDefaults(){
+
+  try{
+
+    const savedDefaults =
+      localStorage.getItem(
+        CURRENT_PANEL_DEFAULTS_STORAGE_KEY
+      );
+
+    if(savedDefaults){
+
+      return normalizeCurrentPanelSelections(
+        JSON.parse(savedDefaults)
+      );
+
+    }
+
+  }
+  catch(err){
+
+    console.log(err);
+
+  }
+
+  return cloneCurrentPanelSelections(
+    DEFAULT_CURRENT_PANEL_SELECTIONS
+  );
+
+}
+
+function saveCurrentWeatherPanelDefaults(){
+
+  try{
+
+    const defaults =
+      normalizeCurrentPanelSelections(
+        currentPanelSelections
+      );
+
+    localStorage.setItem(
+      CURRENT_PANEL_DEFAULTS_STORAGE_KEY,
+      JSON.stringify(defaults)
+    );
+
+    currentPanelSelections =
+      cloneCurrentPanelSelections(defaults);
+
+    renderCurrentWeatherPanels();
+    renderCurrentWeatherPanelSettings();
+
+  }
+  catch(err){
+
+    console.log(err);
+
+  }
+
+}
+
 function renderCurrentWeatherPanel(panelId,selection){
 
   const panel =
@@ -3023,14 +3148,21 @@ function renderCurrentWeatherPanelSettings(){
     `;
 
     const availableParameters =
-      CURRENT_WEATHER_PARAMETERS.filter(
-        parameter=>parameter.id !== 'temperature_feels_like'
+      getConfigurableCurrentWeatherParameterIds()
+      .map(getCurrentWeatherParameter)
+      .filter(Boolean);
+
+    currentPanelSelections[panel.key] =
+      normalizeCurrentPanelSelection(
+        currentPanelSelections[panel.key],
+        DEFAULT_CURRENT_PANEL_SELECTIONS[panel.key],
+        availableParameters.map(parameter=>parameter.id)
       );
 
     const selectedIds =
       currentPanelSelections[panel.key].filter(
-        parameterId=>availableParameters.some(
-          parameter=>parameter.id === parameterId
+        parameterId=>availableParameters.some(parameter=>
+          parameter.id === parameterId
         )
       );
 
@@ -3172,10 +3304,8 @@ function changeCurrentPanelSetting(panelKey,parameterId,isChecked){
 
 function resetCurrentWeatherPanelSettings(){
 
-  currentPanelSelections = {
-    first:[...DEFAULT_CURRENT_PANEL_SELECTIONS.first],
-    second:[...DEFAULT_CURRENT_PANEL_SELECTIONS.second]
-  };
+  currentPanelSelections =
+    loadCurrentWeatherPanelDefaults();
 
   renderCurrentWeatherPanels();
   renderCurrentWeatherPanelSettings();
