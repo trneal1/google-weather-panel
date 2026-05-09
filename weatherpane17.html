@@ -11,6 +11,11 @@
   href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
 />
 
+<link
+  rel="stylesheet"
+  href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400,0,0"
+/>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -425,8 +430,29 @@ body{
 }
 
 .forecast-icon{
-  font-size:24px;
+  height:28px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
   margin-bottom:4px;
+}
+
+.forecast-weather-symbol{
+  font-family:'Material Symbols Outlined';
+  font-weight:normal;
+  font-style:normal;
+  font-size:28px;
+  line-height:1;
+  letter-spacing:normal;
+  text-transform:none;
+  display:inline-block;
+  white-space:nowrap;
+  word-wrap:normal;
+  direction:ltr;
+  -webkit-font-feature-settings:'liga';
+  -webkit-font-smoothing:antialiased;
+  font-feature-settings:'liga';
+  color:#ffd166;
 }
 
 .forecast-summary{
@@ -670,6 +696,10 @@ canvas{
   gap:12px;
 }
 
+.chart-panel-settings{
+  grid-template-columns:1fr;
+}
+
 .current-panel-group{
   background:rgba(255,255,255,0.05);
   border:1px solid rgba(255,255,255,0.08);
@@ -682,6 +712,61 @@ canvas{
   font-weight:bold;
   margin-bottom:10px;
   opacity:0.82;
+}
+
+.chart-panel-heading-btn{
+  width:100%;
+  min-height:34px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  border:none;
+  background:transparent;
+  color:white;
+  cursor:pointer;
+  padding:0;
+  text-align:left;
+}
+
+.chart-panel-heading-main{
+  min-width:0;
+}
+
+.chart-panel-heading-title{
+  display:block;
+  font-size:12px;
+  font-weight:bold;
+  opacity:0.9;
+}
+
+.chart-panel-heading-summary{
+  display:block;
+  margin-top:3px;
+  font-size:11px;
+  font-weight:normal;
+  opacity:0.62;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.chart-panel-heading-icon{
+  width:24px;
+  height:24px;
+  display:grid;
+  place-items:center;
+  border-radius:6px;
+  background:rgba(255,255,255,0.1);
+  flex:0 0 auto;
+}
+
+.chart-panel-options{
+  margin-top:10px;
+}
+
+.chart-panel-options.collapsed{
+  display:none;
 }
 
 .parameter-option{
@@ -938,6 +1023,10 @@ canvas{
     margin-bottom:2px;
   }
 
+  .forecast-weather-symbol{
+    font-size:24px;
+  }
+
   .forecast-daily-meta{
     margin-top:3px;
   }
@@ -1040,8 +1129,12 @@ canvas{
   }
 
   .forecast-icon{
-    font-size:19px;
+    height:22px;
     margin-bottom:2px;
+  }
+
+  .forecast-weather-symbol{
+    font-size:21px;
   }
 
   .forecast-summary{
@@ -1192,25 +1285,26 @@ canvas{
       <!-- TEMP / FEELS LIKE -->
 
       <div
+        id="chartPanelFirstCard"
         class="chart-card"
-        onclick="toggleTempFeelsLike()"
+        onclick="cycleChartPanel('first')"
         style="cursor:pointer;"
       >
 
         <div
           class="chart-title"
-          id="tempFeelsTitle"
+          id="chartPanelFirstTitle"
         >
           <span>36h Temp [°F]</span>
           <div class="chart-title-actions">
             <span
-              id="tempFeelsNext"
+              id="chartPanelFirstNext"
               class="chart-next-label"
               title="Next chart"
             >FL</span>
             <button
               class="chart-expand-btn"
-              onclick="event.stopPropagation(); openChartModal(showingTemperature ? 'tempChart' : 'feelsLikeChart')"
+              onclick="event.stopPropagation(); openChartModal(getActiveChartCanvasId('first'))"
               title="Expand chart"
             >
               ⤢
@@ -1234,30 +1328,47 @@ canvas{
           <canvas id="feelsLikeChart"></canvas>
         </div>
 
+        <div
+          id="heatIndexPanel"
+          class="chart-container"
+          style="display:none;"
+        >
+          <canvas id="heatIndexChart"></canvas>
+        </div>
+
+        <div
+          id="thunderstormPanel"
+          class="chart-container"
+          style="display:none;"
+        >
+          <canvas id="thunderstormChart"></canvas>
+        </div>
+
       </div>
 
       <!-- WIND / HUMIDITY -->
 
       <div
+        id="chartPanelSecondCard"
         class="chart-card"
-        onclick="toggleWindHumidity()"
+        onclick="cycleChartPanel('second')"
         style="cursor:pointer;"
       >
 
         <div
           class="chart-title"
-          id="windHumidityTitle"
+          id="chartPanelSecondTitle"
         >
           <span>36h Wind [mph]</span>
           <div class="chart-title-actions">
             <span
-              id="windHumidityNext"
+              id="chartPanelSecondNext"
               class="chart-next-label"
               title="Next chart"
             >HUM</span>
             <button
               class="chart-expand-btn"
-              onclick="event.stopPropagation(); openChartModal(showingWind ? 'windChart' : 'humidityChart')"
+              onclick="event.stopPropagation(); openChartModal(getActiveChartCanvasId('second'))"
               title="Expand chart"
             >
               ⤢
@@ -1318,25 +1429,26 @@ canvas{
       <!-- PRESSURE -->
 
       <div
+        id="chartPanelThirdCard"
         class="chart-card"
-        onclick="togglePressureUv()"
+        onclick="cycleChartPanel('third')"
         style="cursor:pointer;"
       >
 
         <div
           class="chart-title"
-          id="pressureTitle"
+          id="chartPanelThirdTitle"
         >
           <span>36h Pressure [hPa]</span>
           <div class="chart-title-actions">
             <span
-              id="pressureUvNext"
+              id="chartPanelThirdNext"
               class="chart-next-label"
               title="Next chart"
             >UV</span>
             <button
               class="chart-expand-btn"
-              onclick="event.stopPropagation(); openChartModal(getPressureChartCanvasId())"
+              onclick="event.stopPropagation(); openChartModal(getActiveChartCanvasId('third'))"
               title="Expand chart"
             >
               ⤢
@@ -1373,25 +1485,26 @@ canvas{
       <!-- PRECIP / RAIN -->
 
       <div
+        id="chartPanelFourthCard"
         class="chart-card"
-        onclick="togglePrecipRain()"
+        onclick="cycleChartPanel('fourth')"
         style="cursor:pointer;"
       >
 
         <div
           class="chart-title"
-          id="precipRainTitle"
+          id="chartPanelFourthTitle"
         >
           <span>36h Precip [%]</span>
           <div class="chart-title-actions">
             <span
-              id="precipRainNext"
+              id="chartPanelFourthNext"
               class="chart-next-label"
               title="Next chart"
             >RAIN</span>
             <button
               class="chart-expand-btn"
-              onclick="event.stopPropagation(); openChartModal(showingPrecip ? 'precipChart' : 'rainAmountChart')"
+              onclick="event.stopPropagation(); openChartModal(getActiveChartCanvasId('fourth'))"
               title="Expand chart"
             >
               ⤢
@@ -1550,6 +1663,13 @@ canvas{
           Current Weather Panels
         </button>
 
+        <button
+          class="settings-nav-btn"
+          onclick="showChartPanelSettings()"
+        >
+          Chart Panels
+        </button>
+
         <div class="settings-field">
           <label for="zipInput">ZIP Code</label>
           <div class="zip-search">
@@ -1617,6 +1737,52 @@ canvas{
           <button
             class="settings-action-btn"
             onclick="resetCurrentWeatherPanelSettings()"
+          >
+            Defaults
+          </button>
+        </div>
+
+      </div>
+
+      <div
+        id="settingsChartPanelsScreen"
+        class="settings-screen"
+      >
+
+        <div class="settings-title">
+          <div class="settings-title-left">
+            <button
+              class="settings-back-btn"
+              onclick="showMainSettings()"
+              title="Back"
+            >
+              ‹
+            </button>
+            <span>Chart Panels</span>
+          </div>
+          <button
+            class="settings-close"
+            onclick="closeSettingsPopup()"
+          >
+            ×
+          </button>
+        </div>
+
+        <div
+          id="chartPanelSettings"
+          class="current-panel-settings chart-panel-settings"
+        ></div>
+
+        <div class="settings-actions">
+          <button
+            class="settings-action-btn"
+            onclick="saveChartPanelDefaults()"
+          >
+            Save Defaults
+          </button>
+          <button
+            class="settings-action-btn"
+            onclick="resetChartPanelSettings()"
           >
             Defaults
           </button>
@@ -1901,6 +2067,7 @@ setInterval(()=>{
 
 let tempChart;
 let feelsLikeChart;
+let heatIndexChart;
 
 let windChart;
 let humidityChart;
@@ -1911,15 +2078,12 @@ let cloudCoverChart;
 
 let precipChart;
 let rainAmountChart;
+let thunderstormChart;
 
 // ======================================
 // STATES
 // ======================================
 
-let showingTemperature = true;
-let showingWind = true;
-let pressureChartIndex = 0;
-let showingPrecip = true;
 let forecastPanelIndex = 0;
 let showingHeaderOverview = true;
 let chartHourSpan = 24;
@@ -1931,6 +2095,9 @@ let currentWeatherStatus = 'Loading';
 
 const CURRENT_PANEL_DEFAULTS_STORAGE_KEY =
   'weatherDashboardCurrentPanelDefaults';
+
+const CHART_PANEL_DEFAULTS_STORAGE_KEY =
+  'weatherDashboardChartPanelDefaults';
 
 const DEFAULT_CURRENT_PANEL_SELECTIONS = {
   first:[
@@ -1953,6 +2120,161 @@ let currentPanelSelections = {
   first:[...DEFAULT_CURRENT_PANEL_SELECTIONS.first],
   second:[...DEFAULT_CURRENT_PANEL_SELECTIONS.second]
 };
+
+const CHART_PANEL_DEFINITIONS = [
+  {
+    key:'first',
+    title:'Chart Panel 1',
+    cardId:'chartPanelFirstCard',
+    titleId:'chartPanelFirstTitle',
+    nextId:'chartPanelFirstNext'
+  },
+  {
+    key:'second',
+    title:'Chart Panel 2',
+    cardId:'chartPanelSecondCard',
+    titleId:'chartPanelSecondTitle',
+    nextId:'chartPanelSecondNext'
+  },
+  {
+    key:'third',
+    title:'Chart Panel 3',
+    cardId:'chartPanelThirdCard',
+    titleId:'chartPanelThirdTitle',
+    nextId:'chartPanelThirdNext'
+  },
+  {
+    key:'fourth',
+    title:'Chart Panel 4',
+    cardId:'chartPanelFourthCard',
+    titleId:'chartPanelFourthTitle',
+    nextId:'chartPanelFourthNext'
+  }
+];
+
+const CHART_OPTIONS = [
+  {
+    id:'temperature',
+    label:'Temperature',
+    shortLabel:'TEMP',
+    panelId:'temperaturePanel',
+    canvasId:'tempChart',
+    display:'block'
+  },
+  {
+    id:'feels_like',
+    label:'Feels Like',
+    shortLabel:'FL',
+    panelId:'feelsLikePanel',
+    canvasId:'feelsLikeChart',
+    display:'block'
+  },
+  {
+    id:'wind',
+    label:'Wind',
+    shortLabel:'WIND',
+    panelId:'windPanel',
+    canvasId:'windChart',
+    display:'flex'
+  },
+  {
+    id:'humidity',
+    label:'Humidity',
+    shortLabel:'HUM',
+    panelId:'humidityPanel',
+    canvasId:'humidityChart',
+    display:'block'
+  },
+  {
+    id:'heat_index',
+    label:'Heat Index',
+    shortLabel:'HI',
+    panelId:'heatIndexPanel',
+    canvasId:'heatIndexChart',
+    display:'block'
+  },
+  {
+    id:'pressure',
+    label:'Pressure',
+    shortLabel:'PRES',
+    panelId:'pressurePanel',
+    canvasId:'pressureChart',
+    display:'block'
+  },
+  {
+    id:'uv_index',
+    label:'UV Index',
+    shortLabel:'UV',
+    panelId:'uvPanel',
+    canvasId:'uvChart',
+    display:'block'
+  },
+  {
+    id:'cloud_cover',
+    label:'Cloud Cover',
+    shortLabel:'CLD',
+    panelId:'cloudCoverPanel',
+    canvasId:'cloudCoverChart',
+    display:'block'
+  },
+  {
+    id:'precip_chance',
+    label:'Chance of Precipitation',
+    shortLabel:'POP',
+    panelId:'precipPanel',
+    canvasId:'precipChart',
+    display:'block'
+  },
+  {
+    id:'precip_amount',
+    label:'Precipitation Amount',
+    shortLabel:'AMT',
+    panelId:'rainAmountPanel',
+    canvasId:'rainAmountChart',
+    display:'block'
+  },
+  {
+    id:'thunderstorm_probability',
+    label:'Thunderstorm Probability',
+    shortLabel:'TSTM',
+    panelId:'thunderstormPanel',
+    canvasId:'thunderstormChart',
+    display:'block'
+  }
+];
+
+const DEFAULT_CHART_PANEL_SELECTIONS = {
+  first:[
+    'temperature',
+    'feels_like'
+  ],
+  second:[
+    'wind',
+    'humidity'
+  ],
+  third:[
+    'pressure',
+    'uv_index',
+    'cloud_cover'
+  ],
+  fourth:[
+    'precip_chance',
+    'precip_amount'
+  ]
+};
+
+let chartPanelSelections = cloneChartPanelSelections(
+  DEFAULT_CHART_PANEL_SELECTIONS
+);
+
+let chartPanelActiveIndexes = {
+  first:0,
+  second:0,
+  third:0,
+  fourth:0
+};
+
+let openChartPanelSettingsGroups = {};
 
 const CURRENT_WEATHER_PARAMETERS = [
   {
@@ -2055,6 +2377,9 @@ const EXPANDED_CHART_HOURS = 96;
 currentPanelSelections =
   loadCurrentWeatherPanelDefaults();
 
+chartPanelSelections =
+  loadChartPanelDefaults();
+
 // ======================================
 // DESTROY
 // ======================================
@@ -2063,6 +2388,7 @@ function destroyCharts(){
 
   if(tempChart) tempChart.destroy();
   if(feelsLikeChart) feelsLikeChart.destroy();
+  if(heatIndexChart) heatIndexChart.destroy();
 
   if(windChart) windChart.destroy();
   if(humidityChart) humidityChart.destroy();
@@ -2073,6 +2399,7 @@ function destroyCharts(){
 
   if(precipChart) precipChart.destroy();
   if(rainAmountChart) rainAmountChart.destroy();
+  if(thunderstormChart) thunderstormChart.destroy();
 
 }
 
@@ -2376,13 +2703,15 @@ function refreshChartTimeTicks(){
   [
     tempChart,
     feelsLikeChart,
+    heatIndexChart,
     windChart,
     humidityChart,
     pressureChart,
     uvChart,
     cloudCoverChart,
     precipChart,
-    rainAmountChart
+    rainAmountChart,
+    thunderstormChart
   ].forEach(chart=>{
 
     if(!chart){
@@ -2543,156 +2872,275 @@ function createChart(
 // TOGGLES
 // ======================================
 
-function toggleTempFeelsLike(){
+function getChartOption(chartId){
 
-  showingTemperature =
-    !showingTemperature;
-
-  document.getElementById(
-    'temperaturePanel'
-  ).style.display =
-    showingTemperature
-      ? 'block'
-      : 'none';
-
-  document.getElementById(
-    'feelsLikePanel'
-  ).style.display =
-    showingTemperature
-      ? 'none'
-      : 'block';
-
-  document.querySelector(
-    '#tempFeelsTitle span'
-  ).innerText =
-    showingTemperature
-      ? getChartTitle('Temperature')
-      : getChartTitle('Feels Like');
-
-  updateChartNextLabels();
+  return CHART_OPTIONS.find(
+    chart=>chart.id === chartId
+  );
 
 }
 
-function toggleWindHumidity(){
+function cloneChartPanelSelections(selections){
 
-  showingWind =
-    !showingWind;
+  return CHART_PANEL_DEFINITIONS.reduce(
+    (panelSelections,panel)=>{
 
-  document.getElementById(
-    'windPanel'
-  ).style.display =
-    showingWind
-      ? 'flex'
-      : 'none';
+      panelSelections[panel.key] =
+        selections && Array.isArray(selections[panel.key])
+          ? [...selections[panel.key]]
+          : [...DEFAULT_CHART_PANEL_SELECTIONS[panel.key]];
 
-  document.getElementById(
-    'humidityPanel'
-  ).style.display =
-    showingWind
-      ? 'none'
-      : 'block';
+      return panelSelections;
 
-  document.querySelector(
-    '#windHumidityTitle span'
-  ).innerText =
-    showingWind
-      ? getChartTitle('Wind')
-      : getChartTitle('Humidity');
-
-  updateChartNextLabels();
+    },
+    {}
+  );
 
 }
 
-function togglePrecipRain(){
+function getAvailableChartIds(){
 
-  showingPrecip =
-    !showingPrecip;
-
-  document.getElementById(
-    'precipPanel'
-  ).style.display =
-    showingPrecip
-      ? 'block'
-      : 'none';
-
-  document.getElementById(
-    'rainAmountPanel'
-  ).style.display =
-    showingPrecip
-      ? 'none'
-      : 'block';
-
-  document.querySelector(
-    '#precipRainTitle span'
-  ).innerText =
-    showingPrecip
-      ? getChartTitle('Chance of Precipitation')
-      : getChartTitle('Precipitation Amount');
-
-  updateChartNextLabels();
+  return CHART_OPTIONS.map(
+    chart=>chart.id
+  );
 
 }
 
-function togglePressureUv(){
+function normalizeChartPanelSelection(selection,defaults,availableIds){
 
-  pressureChartIndex =
-    (pressureChartIndex + 1) % 3;
+  const normalized =
+    Array.isArray(selection)
+      ? selection
+        .filter((chartId,index,allIds)=>
+          availableIds.includes(chartId) &&
+          allIds.indexOf(chartId) === index
+        )
+      : [];
 
-  updatePressureChartDisplay();
-
-}
-
-function getPressureChartMetric(){
-
-  return [
-    'Pressure',
-    'UV Index',
-    'Cloud Cover'
-  ][pressureChartIndex];
+  return normalized.length
+    ? normalized
+    : [...defaults];
 
 }
 
-function getPressureChartCanvasId(){
+function normalizeChartPanelSelections(selections){
 
-  return [
-    'pressureChart',
-    'uvChart',
-    'cloudCoverChart'
-  ][pressureChartIndex];
+  const availableIds =
+    getAvailableChartIds();
+
+  return CHART_PANEL_DEFINITIONS.reduce(
+    (panelSelections,panel)=>{
+
+      panelSelections[panel.key] =
+        normalizeChartPanelSelection(
+          selections && selections[panel.key],
+          DEFAULT_CHART_PANEL_SELECTIONS[panel.key],
+          availableIds
+        );
+
+      return panelSelections;
+
+    },
+    {}
+  );
 
 }
 
-function updatePressureChartDisplay(){
+function loadChartPanelDefaults(){
 
-  document.getElementById(
-    'pressurePanel'
-  ).style.display =
-    pressureChartIndex === 0
-      ? 'block'
-      : 'none';
+  try{
 
-  document.getElementById(
-    'uvPanel'
-  ).style.display =
-    pressureChartIndex === 1
-      ? 'block'
-      : 'none';
+    const savedDefaults =
+      localStorage.getItem(
+        CHART_PANEL_DEFAULTS_STORAGE_KEY
+      );
 
-  document.getElementById(
-    'cloudCoverPanel'
-  ).style.display =
-    pressureChartIndex === 2
-      ? 'block'
-      : 'none';
+    if(savedDefaults){
 
-  document.querySelector(
-    '#pressureTitle span'
-  ).innerText =
-    getChartTitle(
-      getPressureChartMetric()
+      return normalizeChartPanelSelections(
+        JSON.parse(savedDefaults)
+      );
+
+    }
+
+  }
+  catch(err){
+
+    console.log(err);
+
+  }
+
+  return cloneChartPanelSelections(
+    DEFAULT_CHART_PANEL_SELECTIONS
+  );
+
+}
+
+function saveChartPanelDefaults(){
+
+  try{
+
+    const defaults =
+      normalizeChartPanelSelections(
+        chartPanelSelections
+      );
+
+    localStorage.setItem(
+      CHART_PANEL_DEFAULTS_STORAGE_KEY,
+      JSON.stringify(defaults)
     );
 
-  updateChartNextLabels();
+    chartPanelSelections =
+      cloneChartPanelSelections(defaults);
+
+    normalizeChartPanelActiveIndexes();
+    updateChartTitles();
+    renderChartPanelSettings();
+
+  }
+  catch(err){
+
+    console.log(err);
+
+  }
+
+}
+
+function normalizeChartPanelActiveIndexes(){
+
+  CHART_PANEL_DEFINITIONS.forEach(panel=>{
+
+    const selection =
+      chartPanelSelections[panel.key];
+
+    if(
+      chartPanelActiveIndexes[panel.key] >= selection.length
+    ){
+
+      chartPanelActiveIndexes[panel.key] = 0;
+
+    }
+
+  });
+
+}
+
+function getActiveChartId(panelKey){
+
+  const selection =
+    chartPanelSelections[panelKey] || [];
+
+  const activeIndex =
+    chartPanelActiveIndexes[panelKey] || 0;
+
+  return selection[activeIndex] || selection[0];
+
+}
+
+function getActiveChartCanvasId(panelKey){
+
+  const chart =
+    getChartOption(
+      getActiveChartId(panelKey)
+    );
+
+  return chart
+    ? chart.canvasId
+    : null;
+
+}
+
+function cycleChartPanel(panelKey){
+
+  const selection =
+    chartPanelSelections[panelKey] || [];
+
+  if(selection.length <= 1){
+
+    return;
+
+  }
+
+  chartPanelActiveIndexes[panelKey] =
+    ((chartPanelActiveIndexes[panelKey] || 0) + 1) %
+    selection.length;
+
+  updateChartTitles();
+
+}
+
+function updateChartPanelDisplay(){
+
+  const usedChartIds = [];
+
+  CHART_OPTIONS.forEach(chart=>{
+
+    const panel =
+      document.getElementById(chart.panelId);
+
+    if(panel){
+
+      panel.style.display = 'none';
+
+    }
+
+  });
+
+  CHART_PANEL_DEFINITIONS.forEach(panelDefinition=>{
+
+    let chart =
+      getChartOption(
+        getActiveChartId(panelDefinition.key)
+      );
+
+    if(
+      chart &&
+      usedChartIds.includes(chart.id)
+    ){
+
+      const fallbackChartId =
+        (chartPanelSelections[panelDefinition.key] || [])
+          .find(chartId=>!usedChartIds.includes(chartId));
+
+      if(fallbackChartId){
+
+        chartPanelActiveIndexes[panelDefinition.key] =
+          chartPanelSelections[panelDefinition.key]
+            .indexOf(fallbackChartId);
+
+        chart =
+          getChartOption(fallbackChartId);
+
+      }
+
+    }
+
+    if(!chart){
+
+      return;
+
+    }
+
+    usedChartIds.push(chart.id);
+
+    const card =
+      document.getElementById(
+        panelDefinition.cardId
+      );
+
+    const panel =
+      document.getElementById(chart.panelId);
+
+    if(card && panel){
+
+      card.appendChild(panel);
+
+      panel.style.display =
+        chart.display;
+
+    }
+
+  });
 
 }
 
@@ -2701,10 +3149,13 @@ function getChartTitle(metric){
   const shortMetrics = {
 
     'Temperature':'Temp',
+    'Temperature / Feels Like':'Temp/Feels',
     'Feels Like':'Feels',
+    'Heat Index':'Heat Idx',
     'Wind':'Wind/Gust',
     'Chance of Precipitation':'Precip',
     'Precipitation Amount':'Precip',
+    'Thunderstorm Probability':'T-Storm',
     'Cloud Cover':'Clouds',
     'UV Index':'UV'
 
@@ -2713,12 +3164,15 @@ function getChartTitle(metric){
   const chartUnits = {
 
     'Temperature':'°F',
+    'Temperature / Feels Like':'°F',
     'Feels Like':'°F',
+    'Heat Index':'°F',
     'Wind':'mph',
     'Humidity':'%',
     'Pressure':'hPa',
     'Chance of Precipitation':'%',
     'Precipitation Amount':'in',
+    'Thunderstorm Probability':'%',
     'Cloud Cover':'%',
     'UV Index':'index'
 
@@ -2738,47 +3192,46 @@ function getChartTitle(metric){
 
 function updateChartNextLabels(){
 
-  setChartNextLabel(
-    'tempFeelsNext',
-    showingTemperature ? 'FL' : 'TEMP',
-    showingTemperature ? 'Feels Like' : 'Temperature'
-  );
+  CHART_PANEL_DEFINITIONS.forEach(panel=>{
 
-  setChartNextLabel(
-    'windHumidityNext',
-    showingWind ? 'HUM' : 'WIND',
-    showingWind ? 'Humidity' : 'Wind'
-  );
+    const nextLabel =
+      document.getElementById(
+        panel.nextId
+      );
 
-  const pressureNextMetrics = [
-    {
-      label:'UV',
-      title:'UV Index'
-    },
-    {
-      label:'CLD',
-      title:'Cloud Cover'
-    },
-    {
-      label:'PRES',
-      title:'Pressure'
+    if(!nextLabel){
+
+      return;
+
     }
-  ];
 
-  const pressureNext =
-    pressureNextMetrics[pressureChartIndex];
+    const selection =
+      chartPanelSelections[panel.key] || [];
 
-  setChartNextLabel(
-    'pressureUvNext',
-    pressureNext.label,
-    pressureNext.title
-  );
+    if(selection.length <= 1){
 
-  setChartNextLabel(
-    'precipRainNext',
-    showingPrecip ? 'AMT' : 'POP',
-    showingPrecip ? 'Precipitation Amount' : 'Chance of Precipitation'
-  );
+      nextLabel.innerText = '';
+      nextLabel.title = '';
+
+      return;
+
+    }
+
+    const activeIndex =
+      chartPanelActiveIndexes[panel.key] || 0;
+
+    const nextChart =
+      getChartOption(
+        selection[(activeIndex + 1) % selection.length]
+      );
+
+    setChartNextLabel(
+      panel.nextId,
+      nextChart.shortLabel,
+      nextChart.label
+    );
+
+  });
 
 }
 
@@ -2799,33 +3252,32 @@ function setChartNextLabel(id,label,nextChart){
 
 function updateChartTitles(){
 
-  document.querySelector(
-    '#tempFeelsTitle span'
-  ).innerText =
-    showingTemperature
-      ? getChartTitle('Temperature')
-      : getChartTitle('Feels Like');
+  normalizeChartPanelActiveIndexes();
 
-  document.querySelector(
-    '#windHumidityTitle span'
-  ).innerText =
-    showingWind
-      ? getChartTitle('Wind')
-      : getChartTitle('Humidity');
+  updateChartPanelDisplay();
 
-  document.querySelector(
-    '#pressureTitle span'
-  ).innerText =
-    getChartTitle(
-      getPressureChartMetric()
-    );
+  refreshChartTimeTicks();
 
-  document.querySelector(
-    '#precipRainTitle span'
-  ).innerText =
-    showingPrecip
-      ? getChartTitle('Chance of Precipitation')
-      : getChartTitle('Precipitation Amount');
+  CHART_PANEL_DEFINITIONS.forEach(panel=>{
+
+    const title =
+      document.querySelector(
+        `#${panel.titleId} span`
+      );
+
+    const activeChart =
+      getChartOption(
+        getActiveChartId(panel.key)
+      );
+
+    if(title && activeChart){
+
+      title.innerText =
+        getChartTitle(activeChart.label);
+
+    }
+
+  });
 
   updateChartNextLabels();
 
@@ -3302,6 +3754,232 @@ function changeCurrentPanelSetting(panelKey,parameterId,isChecked){
 
 }
 
+function renderChartPanelSettings(){
+
+  const container =
+    document.getElementById(
+      'chartPanelSettings'
+    );
+
+  if(!container){
+
+    return;
+
+  }
+
+  container.innerHTML = '';
+
+  CHART_PANEL_DEFINITIONS.forEach(panel=>{
+
+    const group =
+      document.createElement('div');
+
+    group.className =
+      'current-panel-group';
+
+    chartPanelSelections[panel.key] =
+      normalizeChartPanelSelection(
+        chartPanelSelections[panel.key],
+        DEFAULT_CHART_PANEL_SELECTIONS[panel.key],
+        getAvailableChartIds()
+      );
+
+    const selectedIds =
+      chartPanelSelections[panel.key].filter(
+        chartId=>CHART_OPTIONS.some(chart=>
+          chart.id === chartId
+        )
+      );
+
+    const summary =
+      selectedIds
+        .map(getChartOption)
+        .filter(Boolean)
+        .map(chart=>chart.label)
+        .join(', ');
+
+    const isOpen =
+      !!openChartPanelSettingsGroups[panel.key];
+
+    group.innerHTML = `
+
+      <button
+        type="button"
+        class="chart-panel-heading-btn"
+        onclick="toggleChartPanelSettingsGroup('${panel.key}')"
+      >
+        <span class="chart-panel-heading-main">
+          <span class="chart-panel-heading-title">
+            ${panel.title}
+          </span>
+          <span class="chart-panel-heading-summary">
+            ${summary}
+          </span>
+        </span>
+        <span class="chart-panel-heading-icon">
+          ${isOpen ? '−' : '+'}
+        </span>
+      </button>
+
+    `;
+
+    const optionsContainer =
+      document.createElement('div');
+
+    optionsContainer.className =
+      `chart-panel-options${isOpen ? '' : ' collapsed'}`;
+
+    const orderedCharts =
+      [
+        ...selectedIds
+          .map(getChartOption)
+          .filter(Boolean),
+        ...CHART_OPTIONS.filter(
+          chart=>!selectedIds.includes(chart.id)
+        )
+      ];
+
+    orderedCharts.forEach(chart=>{
+
+      const option =
+        document.createElement('div');
+
+      option.className =
+        'parameter-option';
+
+      const checked =
+        selectedIds.includes(chart.id);
+
+      const selectedIndex =
+        selectedIds.indexOf(chart.id);
+
+      option.innerHTML = `
+
+        <input
+          type="checkbox"
+          ${checked ? 'checked' : ''}
+          onchange="changeChartPanelSetting('${panel.key}','${chart.id}',this.checked)"
+        />
+        <span>${chart.label}</span>
+        <div class="parameter-order-actions">
+          <button
+            type="button"
+            class="parameter-order-btn"
+            title="Move up"
+            ${!checked || selectedIndex === 0 ? 'disabled' : ''}
+            onclick="moveChartPanelChart('${panel.key}','${chart.id}',-1)"
+          >
+            ↑
+          </button>
+          <button
+            type="button"
+            class="parameter-order-btn"
+            title="Move down"
+            ${!checked || selectedIndex === selectedIds.length - 1 ? 'disabled' : ''}
+            onclick="moveChartPanelChart('${panel.key}','${chart.id}',1)"
+          >
+            ↓
+          </button>
+        </div>
+
+      `;
+
+      optionsContainer.appendChild(option);
+
+    });
+
+    group.appendChild(optionsContainer);
+
+    container.appendChild(group);
+
+  });
+
+}
+
+function toggleChartPanelSettingsGroup(panelKey){
+
+  openChartPanelSettingsGroups[panelKey] =
+    !openChartPanelSettingsGroups[panelKey];
+
+  renderChartPanelSettings();
+
+}
+
+function moveChartPanelChart(panelKey,chartId,direction){
+
+  const selection =
+    chartPanelSelections[panelKey];
+
+  const currentIndex =
+    selection.indexOf(chartId);
+
+  if(currentIndex === -1){
+
+    return;
+
+  }
+
+  const nextIndex =
+    currentIndex + direction;
+
+  if(
+    nextIndex < 0 ||
+    nextIndex >= selection.length
+  ){
+
+    return;
+
+  }
+
+  const nextSelection =
+    [...selection];
+
+  [
+    nextSelection[currentIndex],
+    nextSelection[nextIndex]
+  ] = [
+    nextSelection[nextIndex],
+    nextSelection[currentIndex]
+  ];
+
+  chartPanelSelections[panelKey] =
+    nextSelection;
+
+  chartPanelActiveIndexes[panelKey] =
+    nextSelection.indexOf(chartId);
+
+  updateChartTitles();
+  renderChartPanelSettings();
+
+}
+
+function changeChartPanelSetting(panelKey,chartId,isChecked){
+
+  const selection =
+    chartPanelSelections[panelKey];
+
+  if(isChecked){
+
+    if(!selection.includes(chartId)){
+
+      selection.push(chartId);
+
+    }
+
+  }
+  else if(selection.length > 1){
+
+    chartPanelSelections[panelKey] =
+      selection.filter(id=>id !== chartId);
+
+  }
+
+  normalizeChartPanelActiveIndexes();
+  updateChartTitles();
+  renderChartPanelSettings();
+
+}
+
 function resetCurrentWeatherPanelSettings(){
 
   currentPanelSelections =
@@ -3309,6 +3987,17 @@ function resetCurrentWeatherPanelSettings(){
 
   renderCurrentWeatherPanels();
   renderCurrentWeatherPanelSettings();
+
+}
+
+function resetChartPanelSettings(){
+
+  chartPanelSelections =
+    loadChartPanelDefaults();
+
+  normalizeChartPanelActiveIndexes();
+  updateChartTitles();
+  renderChartPanelSettings();
 
 }
 
@@ -3330,10 +4019,34 @@ function showCurrentWeatherSettings(){
 
 }
 
+function showChartPanelSettings(){
+
+  document.getElementById(
+    'settingsMainScreen'
+  ).classList.remove(
+    'active'
+  );
+
+  document.getElementById(
+    'settingsChartPanelsScreen'
+  ).classList.add(
+    'active'
+  );
+
+  renderChartPanelSettings();
+
+}
+
 function showMainSettings(){
 
   document.getElementById(
     'settingsCurrentWeatherScreen'
+  ).classList.remove(
+    'active'
+  );
+
+  document.getElementById(
+    'settingsChartPanelsScreen'
   ).classList.remove(
     'active'
   );
@@ -3458,35 +4171,93 @@ function updateForecastPanelDisplay(){
 // WIND DIRECTIONS
 // ======================================
 
-function getWeatherIcon(weatherMain){
-
-  let icon = '☀️';
+function getWeatherIcon(weatherMain,weatherDescription=''){
 
   const weather =
-    weatherMain.toLowerCase();
+    `${weatherMain || ''} ${weatherDescription || ''}`
+      .toLowerCase();
 
-  if(weather.includes('rain')){
+  let symbol = 'sunny';
+  let color = '#ffd166';
 
-    icon = '🌧️';
+  if(weather.includes('thunder')){
+
+    symbol = 'thunderstorm';
+    color = '#facc15';
 
   }
-  else if(weather.includes('cloud')){
+  else if(
+    weather.includes('sleet') ||
+    weather.includes('hail') ||
+    weather.includes('ice')
+  ){
 
-    icon = '☁️';
+    symbol = 'weather_hail';
+    color = '#bfdbfe';
 
   }
   else if(weather.includes('snow')){
 
-    icon = '❄️';
+    symbol = 'weather_snowy';
+    color = '#dbeafe';
 
   }
-  else if(weather.includes('thunder')){
+  else if(
+    weather.includes('fog') ||
+    weather.includes('mist') ||
+    weather.includes('haze') ||
+    weather.includes('smoke')
+  ){
 
-    icon = '⛈️';
+    symbol = 'foggy';
+    color = '#cbd5e1';
+
+  }
+  else if(
+    weather.includes('rain') ||
+    weather.includes('shower') ||
+    weather.includes('drizzle')
+  ){
+
+    symbol = 'rainy';
+    color = '#60a5fa';
+
+  }
+  else if(
+    weather.includes('partly') ||
+    weather.includes('mostly sunny') ||
+    weather.includes('few clouds') ||
+    weather.includes('scattered clouds')
+  ){
+
+    symbol = 'partly_cloudy_day';
+    color = '#fbbf24';
+
+  }
+  else if(
+    weather.includes('cloud') ||
+    weather.includes('overcast')
+  ){
+
+    symbol = 'cloud';
+    color = '#cbd5e1';
+
+  }
+  else if(weather.includes('wind')){
+
+    symbol = 'air';
+    color = '#93c5fd';
 
   }
 
-  return icon;
+  return `
+    <span
+      class="forecast-weather-symbol"
+      style="color:${color};"
+      title="${weatherDescription || weatherMain}"
+      aria-label="${weatherDescription || weatherMain}"
+    >${symbol}</span>
+  `;
 
 }
 
@@ -3801,6 +4572,89 @@ function precipQuantityInches(value){
 
 }
 
+function percentProbability(value){
+
+  if(typeof value === 'number'){
+
+    return value > 1
+      ? value / 100
+      : value;
+
+  }
+
+  if(
+    value &&
+    typeof value.percent === 'number'
+  ){
+
+    return value.percent / 100;
+
+  }
+
+  return value &&
+    value.probability &&
+    typeof value.probability.percent === 'number'
+      ? value.probability.percent / 100
+      : 0;
+
+}
+
+function thunderstormProbability(hour){
+
+  const directProbability =
+    percentProbability(hour.thunderstormProbability);
+
+  if(directProbability){
+
+    return directProbability;
+
+  }
+
+  const precipitationStormProbability =
+    hour.precipitation
+      ? percentProbability(
+        hour.precipitation.thunderstormProbability
+      )
+      : 0;
+
+  if(precipitationStormProbability){
+
+    return precipitationStormProbability;
+
+  }
+
+  const weatherText =
+    conditionText(hour.weatherCondition).toLowerCase();
+
+  return weatherText.includes('thunder')
+    ? precipProbability(hour.precipitation)
+    : 0;
+
+}
+
+function heatIndexTemperature(temp,humidity){
+
+  if(temp < 80 || humidity < 40){
+
+    return temp;
+
+  }
+
+  const heatIndex =
+    -42.379 +
+    (2.04901523 * temp) +
+    (10.14333127 * humidity) -
+    (0.22475541 * temp * humidity) -
+    (0.00683783 * temp * temp) -
+    (0.05481717 * humidity * humidity) +
+    (0.00122874 * temp * temp * humidity) +
+    (0.00085282 * temp * humidity * humidity) -
+    (0.00000199 * temp * temp * humidity * humidity);
+
+  return Math.round(heatIndex);
+
+}
+
 function normalizeGoogleHour(hour){
 
   return {
@@ -3824,6 +4678,7 @@ function normalizeGoogleHour(hour){
     ),
     uvi:hour.uvIndex || 0,
     pop:precipProbability(hour.precipitation),
+    thunderstorm_pop:thunderstormProbability(hour),
     qpf_inches:precipQuantityInches(hour.precipitation),
     wind_speed:windValue(
       hour.wind,
@@ -4049,6 +4904,15 @@ function getChartSeries(canvasId,hourlyData){
       data:hourlyData.map(h=>h.feels_like),
       color:'#f97316'
     },
+    heatIndexChart:{
+      data:hourlyData.map(h=>
+        heatIndexTemperature(
+          h.temp,
+          h.humidity
+        )
+      ),
+      color:'#ef4444'
+    },
     windChart:{
       data:hourlyData.map(h=>h.wind_speed),
       color:'#5f7dff',
@@ -4113,6 +4977,18 @@ function getChartSeries(canvasId,hourlyData){
         getPrecipAmountInches(h)
       ),
       color:'#22c55e'
+    },
+    thunderstormChart:{
+      data:hourlyData.map(h=>
+        Math.round((h.thunderstorm_pop || 0) * 100)
+      ),
+      color:'#facc15',
+      options:{
+        y:{
+          min:0,
+          max:100
+        }
+      }
     }
 
   };
@@ -4142,6 +5018,19 @@ function renderCharts(data){
     'feelsLikeChart',
     hourlyData.map(h=>h.feels_like),
     '#f97316',
+    'line',
+    hourlyData
+  );
+
+  heatIndexChart = createChart(
+    'heatIndexChart',
+    hourlyData.map(h=>
+      heatIndexTemperature(
+        h.temp,
+        h.humidity
+      )
+    ),
+    '#ef4444',
     'line',
     hourlyData
   );
@@ -4232,6 +5121,22 @@ function renderCharts(data){
     '#22c55e',
     'line',
     hourlyData
+  );
+
+  thunderstormChart = createChart(
+    'thunderstormChart',
+    hourlyData.map(h=>
+      Math.round((h.thunderstorm_pop || 0) * 100)
+    ),
+    '#facc15',
+    'line',
+    hourlyData,
+    {
+      y:{
+        min:0,
+        max:100
+      }
+    }
   );
 
   updateChartTitles();
@@ -4796,7 +5701,8 @@ function renderForecast(data){
       );
 
     let icon = getWeatherIcon(
-      data.daily[i].weather[0].main
+      data.daily[i].weather[0].main,
+      data.daily[i].weather[0].description
     );
 
     card.innerHTML = `
@@ -4893,7 +5799,8 @@ function renderHourlyForecastStrip(data,panelId,startHour){
       );
 
     const hourlyIcon = getWeatherIcon(
-      data.hourly[i].weather[0].main
+      data.hourly[i].weather[0].main,
+      data.hourly[i].weather[0].description
     );
 
     card.innerHTML = `
