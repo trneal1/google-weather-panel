@@ -4635,6 +4635,45 @@ function renderCloudCoverSymbol(cover,isNight,title){
 
 }
 
+function cloudCoverIconType(cloudCover){
+
+  const cover =
+    Number(cloudCover);
+
+  if(!Number.isFinite(cover)){
+
+    return null;
+
+  }
+
+  if(cover <= 5){
+
+    return null;
+
+  }
+
+  if(cover <= 25){
+
+    return 'mostly-sunny';
+
+  }
+
+  if(cover <= 50){
+
+    return 'partly-cloudy';
+
+  }
+
+  if(cover <= 85){
+
+    return 'mostly-cloudy';
+
+  }
+
+  return 'cloudy';
+
+}
+
 function getWeatherIcon(weatherMain,weatherDescription='',options={}){
 
   const weather =
@@ -4643,6 +4682,9 @@ function getWeatherIcon(weatherMain,weatherDescription='',options={}){
 
   const isNight =
     !!options.isNight;
+
+  const cloudCoverType =
+    cloudCoverIconType(options.cloudCover);
 
   let symbol =
     isNight
@@ -4664,6 +4706,16 @@ function getWeatherIcon(weatherMain,weatherDescription='',options={}){
     weather.includes('clear') ||
     weather.includes('sunny')
   ){
+
+    if(cloudCoverType){
+
+      return renderCloudCoverSymbol(
+        cloudCoverType,
+        isNight,
+        title
+      );
+
+    }
 
     if(
       weather.includes('mostly sunny') ||
@@ -4765,7 +4817,6 @@ function getWeatherIcon(weatherMain,weatherDescription='',options={}){
 
     symbol = 'rainy';
     color = '#60a5fa';
-    useStackedIcon = true;
 
   }
   else if(
@@ -4786,7 +4837,7 @@ function getWeatherIcon(weatherMain,weatherDescription='',options={}){
   ){
 
     return renderCloudCoverSymbol(
-      'cloudy',
+      cloudCoverType || 'cloudy',
       isNight,
       title
     );
@@ -6379,7 +6430,9 @@ function renderHourlyForecastStrip(data,panelId,startHour){
       data.hourly[i].weather[0].description,
       {
         isNight:
-          isNightHour
+          isNightHour,
+        cloudCover:
+          data.hourly[i].clouds
       }
     );
 
