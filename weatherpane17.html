@@ -455,6 +455,111 @@ body{
   color:#ffd166;
 }
 
+.forecast-weather-symbol-stack{
+  position:relative;
+  display:inline-block;
+  width:30px;
+  height:30px;
+  line-height:1;
+}
+
+.forecast-weather-symbol-stack .forecast-weather-symbol{
+  position:absolute;
+}
+
+.forecast-weather-symbol-stack .forecast-weather-base{
+  top:-1px;
+  left:-1px;
+  font-size:25px;
+  opacity:0.92;
+}
+
+.forecast-weather-symbol-stack .forecast-weather-condition{
+  right:-2px;
+  bottom:-1px;
+  font-size:22px;
+  filter:drop-shadow(0 1px 2px rgba(0,0,0,0.55));
+}
+
+.forecast-weather-cloud-cover{
+  position:relative;
+  display:inline-block;
+  width:32px;
+  height:30px;
+  line-height:1;
+}
+
+.forecast-weather-cloud-cover .forecast-weather-symbol{
+  position:absolute;
+  filter:drop-shadow(0 1px 2px rgba(0,0,0,0.48));
+}
+
+.cloud-cover-base{
+  color:#ffd166;
+}
+
+.cloud-cover-cloud,
+.cloud-cover-cloud-secondary{
+  color:#cbd5e1;
+}
+
+.cloud-cover-mostly-sunny .cloud-cover-base,
+.cloud-cover-partly-sunny .cloud-cover-base{
+  left:0;
+  top:0;
+  font-size:27px;
+}
+
+.cloud-cover-mostly-sunny .cloud-cover-cloud{
+  right:1px;
+  bottom:1px;
+  font-size:15px;
+}
+
+.cloud-cover-partly-sunny .cloud-cover-cloud{
+  right:-1px;
+  bottom:-1px;
+  font-size:21px;
+}
+
+.cloud-cover-partly-cloudy .cloud-cover-base{
+  left:1px;
+  top:0;
+  font-size:20px;
+}
+
+.cloud-cover-partly-cloudy .cloud-cover-cloud{
+  right:-2px;
+  bottom:-1px;
+  font-size:25px;
+}
+
+.cloud-cover-mostly-cloudy .cloud-cover-base{
+  left:1px;
+  top:1px;
+  font-size:17px;
+}
+
+.cloud-cover-mostly-cloudy .cloud-cover-cloud{
+  right:-2px;
+  bottom:-1px;
+  font-size:26px;
+}
+
+.cloud-cover-mostly-cloudy .cloud-cover-cloud-secondary,
+.cloud-cover-cloudy .cloud-cover-cloud-secondary{
+  left:0;
+  bottom:1px;
+  font-size:21px;
+  opacity:0.9;
+}
+
+.cloud-cover-cloudy .cloud-cover-cloud{
+  right:0;
+  top:1px;
+  font-size:28px;
+}
+
 .forecast-summary{
   font-size:10px;
   text-align:center;
@@ -1027,6 +1132,24 @@ canvas{
     font-size:24px;
   }
 
+  .forecast-weather-symbol-stack{
+    width:26px;
+    height:26px;
+  }
+
+  .forecast-weather-symbol-stack .forecast-weather-base{
+    font-size:22px;
+  }
+
+  .forecast-weather-symbol-stack .forecast-weather-condition{
+    font-size:20px;
+  }
+
+  .forecast-weather-cloud-cover{
+    width:28px;
+    height:26px;
+  }
+
   .forecast-daily-meta{
     margin-top:3px;
   }
@@ -1135,6 +1258,24 @@ canvas{
 
   .forecast-weather-symbol{
     font-size:21px;
+  }
+
+  .forecast-weather-symbol-stack{
+    width:23px;
+    height:23px;
+  }
+
+  .forecast-weather-symbol-stack .forecast-weather-base{
+    font-size:20px;
+  }
+
+  .forecast-weather-symbol-stack .forecast-weather-condition{
+    font-size:18px;
+  }
+
+  .forecast-weather-cloud-cover{
+    width:25px;
+    height:23px;
   }
 
   .forecast-summary{
@@ -4171,19 +4312,376 @@ function updateForecastPanelDisplay(){
 // WIND DIRECTIONS
 // ======================================
 
-function getWeatherIcon(weatherMain,weatherDescription=''){
+function getDayOfYear(date){
+
+  const start =
+    new Date(
+      date.getFullYear(),
+      0,
+      0
+    );
+
+  return Math.floor(
+    (date - start) / 86400000
+  );
+
+}
+
+function normalizeDegrees(value){
+
+  return ((value % 360) + 360) % 360;
+
+}
+
+function normalizeHours(value){
+
+  return ((value % 24) + 24) % 24;
+
+}
+
+function calculateSunEvent(date,lat,lon,isSunrise){
+
+  const zenith =
+    90.833;
+
+  const dayOfYear =
+    getDayOfYear(date);
+
+  const lngHour =
+    lon / 15;
+
+  const eventHour =
+    isSunrise
+      ? 6
+      : 18;
+
+  const approximateTime =
+    dayOfYear + ((eventHour - lngHour) / 24);
+
+  const meanAnomaly =
+    (0.9856 * approximateTime) - 3.289;
+
+  const trueLongitude =
+    normalizeDegrees(
+      meanAnomaly +
+      (1.916 * Math.sin(meanAnomaly * Math.PI / 180)) +
+      (0.020 * Math.sin(2 * meanAnomaly * Math.PI / 180)) +
+      282.634
+    );
+
+  let rightAscension =
+    Math.atan(
+      0.91764 * Math.tan(trueLongitude * Math.PI / 180)
+    ) * 180 / Math.PI;
+
+  rightAscension =
+    normalizeDegrees(rightAscension);
+
+  rightAscension +=
+    Math.floor(trueLongitude / 90) * 90 -
+    Math.floor(rightAscension / 90) * 90;
+
+  rightAscension /= 15;
+
+  const sinDeclination =
+    0.39782 * Math.sin(trueLongitude * Math.PI / 180);
+
+  const cosDeclination =
+    Math.cos(
+      Math.asin(sinDeclination)
+    );
+
+  const cosHourAngle =
+    (
+      Math.cos(zenith * Math.PI / 180) -
+      (sinDeclination * Math.sin(lat * Math.PI / 180))
+    ) /
+    (
+      cosDeclination * Math.cos(lat * Math.PI / 180)
+    );
+
+  if(cosHourAngle > 1 || cosHourAngle < -1){
+
+    return null;
+
+  }
+
+  let hourAngle =
+    Math.acos(cosHourAngle) * 180 / Math.PI;
+
+  if(isSunrise){
+
+    hourAngle =
+      360 - hourAngle;
+
+  }
+
+  hourAngle /= 15;
+
+  const localMeanTime =
+    hourAngle +
+    rightAscension -
+    (0.06571 * approximateTime) -
+    6.622;
+
+  const utcHours =
+    normalizeHours(
+      localMeanTime - lngHour
+    );
+
+  return new Date(
+    Date.UTC(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate()
+    ) +
+    (utcHours * 60 * 60 * 1000)
+  );
+
+}
+
+function isNightForecastHour(timestampSeconds,lat,lon){
+
+  if(
+    typeof timestampSeconds !== 'number' ||
+    typeof lat !== 'number' ||
+    typeof lon !== 'number'
+  ){
+
+    return false;
+
+  }
+
+  const forecastDate =
+    new Date(
+      timestampSeconds * 1000
+    );
+
+  let sunrise =
+    calculateSunEvent(
+      forecastDate,
+      lat,
+      lon,
+      true
+    );
+
+  let sunset =
+    calculateSunEvent(
+      forecastDate,
+      lat,
+      lon,
+      false
+    );
+
+  if(!sunrise || !sunset){
+
+    const hour =
+      forecastDate.getHours();
+
+    return hour < 6 || hour >= 18;
+
+  }
+
+  if(sunset <= sunrise){
+
+    sunset =
+      new Date(
+        sunset.getTime() + 86400000
+      );
+
+  }
+
+  return forecastDate < sunrise || forecastDate >= sunset;
+
+}
+
+function renderWeatherSymbol(symbol,color,title){
+
+  return `
+    <span
+      class="forecast-weather-symbol"
+      style="color:${color};"
+      title="${title}"
+      aria-label="${title}"
+    >${symbol}</span>
+  `;
+
+}
+
+function renderStackedWeatherSymbol(conditionSymbol,conditionColor,isNight,title){
+
+  const baseSymbol =
+    isNight
+      ? 'dark_mode'
+      : 'sunny';
+
+  const baseColor =
+    isNight
+      ? '#c4b5fd'
+      : '#ffd166';
+
+  return `
+    <span
+      class="forecast-weather-symbol-stack"
+      title="${title}"
+      aria-label="${title}"
+    >
+      <span
+        class="forecast-weather-symbol forecast-weather-base"
+        style="color:${baseColor};"
+        aria-hidden="true"
+      >${baseSymbol}</span>
+      <span
+        class="forecast-weather-symbol forecast-weather-condition"
+        style="color:${conditionColor};"
+        aria-hidden="true"
+      >${conditionSymbol}</span>
+    </span>
+  `;
+
+}
+
+function renderCloudCoverSymbol(cover,isNight,title){
+
+  const baseSymbol =
+    isNight
+      ? 'dark_mode'
+      : 'sunny';
+
+  const baseColor =
+    isNight
+      ? '#c4b5fd'
+      : '#ffd166';
+
+  const hasBase =
+    cover !== 'cloudy';
+
+  const hasSecondaryCloud =
+    cover === 'mostly-cloudy' ||
+    cover === 'cloudy';
+
+  return `
+    <span
+      class="forecast-weather-cloud-cover cloud-cover-${cover}"
+      title="${title}"
+      aria-label="${title}"
+    >
+      ${
+        hasBase
+          ? `<span
+              class="forecast-weather-symbol cloud-cover-base"
+              style="color:${baseColor};"
+              aria-hidden="true"
+            >${baseSymbol}</span>`
+          : ''
+      }
+      ${
+        hasSecondaryCloud
+          ? `<span
+              class="forecast-weather-symbol cloud-cover-cloud-secondary"
+              aria-hidden="true"
+            >cloud</span>`
+          : ''
+      }
+      <span
+        class="forecast-weather-symbol cloud-cover-cloud"
+        aria-hidden="true"
+      >cloud</span>
+    </span>
+  `;
+
+}
+
+function getWeatherIcon(weatherMain,weatherDescription='',options={}){
 
   const weather =
     `${weatherMain || ''} ${weatherDescription || ''}`
       .toLowerCase();
 
-  let symbol = 'sunny';
-  let color = '#ffd166';
+  const isNight =
+    !!options.isNight;
+
+  let symbol =
+    isNight
+      ? 'dark_mode'
+      : 'sunny';
+
+  let color =
+    isNight
+      ? '#c4b5fd'
+      : '#ffd166';
+
+  let useStackedIcon =
+    false;
+
+  const title =
+    weatherDescription || weatherMain;
+
+  if(
+    weather.includes('clear') ||
+    weather.includes('sunny')
+  ){
+
+    if(
+      weather.includes('mostly sunny') ||
+      weather.includes('mainly sunny')
+    ){
+
+      return renderCloudCoverSymbol(
+        'mostly-sunny',
+        isNight,
+        title
+      );
+
+    }
+
+    if(
+      weather.includes('partly sunny') ||
+      weather.includes('partly clear')
+    ){
+
+      return renderCloudCoverSymbol(
+        'partly-sunny',
+        isNight,
+        title
+      );
+
+    }
+
+  }
+
+  if(
+    weather.includes('mostly cloudy') ||
+    weather.includes('broken clouds')
+  ){
+
+    return renderCloudCoverSymbol(
+      'mostly-cloudy',
+      isNight,
+      title
+    );
+
+  }
+
+  if(
+    weather.includes('partly cloudy') ||
+    weather.includes('few clouds') ||
+    weather.includes('scattered clouds')
+  ){
+
+    return renderCloudCoverSymbol(
+      'partly-cloudy',
+      isNight,
+      title
+    );
+
+  }
 
   if(weather.includes('thunder')){
 
     symbol = 'thunderstorm';
     color = '#facc15';
+    useStackedIcon = true;
 
   }
   else if(
@@ -4194,12 +4692,14 @@ function getWeatherIcon(weatherMain,weatherDescription=''){
 
     symbol = 'weather_hail';
     color = '#bfdbfe';
+    useStackedIcon = true;
 
   }
   else if(weather.includes('snow')){
 
     symbol = 'weather_snowy';
     color = '#dbeafe';
+    useStackedIcon = true;
 
   }
   else if(
@@ -4211,6 +4711,7 @@ function getWeatherIcon(weatherMain,weatherDescription=''){
 
     symbol = 'foggy';
     color = '#cbd5e1';
+    useStackedIcon = true;
 
   }
   else if(
@@ -4221,17 +4722,19 @@ function getWeatherIcon(weatherMain,weatherDescription=''){
 
     symbol = 'rainy';
     color = '#60a5fa';
+    useStackedIcon = true;
 
   }
   else if(
     weather.includes('partly') ||
-    weather.includes('mostly sunny') ||
-    weather.includes('few clouds') ||
-    weather.includes('scattered clouds')
+    weather.includes('mostly sunny')
   ){
 
-    symbol = 'partly_cloudy_day';
-    color = '#fbbf24';
+    return renderCloudCoverSymbol(
+      'partly-cloudy',
+      isNight,
+      title
+    );
 
   }
   else if(
@@ -4239,25 +4742,37 @@ function getWeatherIcon(weatherMain,weatherDescription=''){
     weather.includes('overcast')
   ){
 
-    symbol = 'cloud';
-    color = '#cbd5e1';
+    return renderCloudCoverSymbol(
+      'cloudy',
+      isNight,
+      title
+    );
 
   }
   else if(weather.includes('wind')){
 
     symbol = 'air';
     color = '#93c5fd';
+    useStackedIcon = true;
 
   }
 
-  return `
-    <span
-      class="forecast-weather-symbol"
-      style="color:${color};"
-      title="${weatherDescription || weatherMain}"
-      aria-label="${weatherDescription || weatherMain}"
-    >${symbol}</span>
-  `;
+  if(useStackedIcon){
+
+    return renderStackedWeatherSymbol(
+      symbol,
+      color,
+      isNight,
+      title
+    );
+
+  }
+
+  return renderWeatherSymbol(
+    symbol,
+    color,
+    title
+  );
 
 }
 
@@ -4677,6 +5192,10 @@ function normalizeGoogleHour(hour){
         : 0
     ),
     uvi:hour.uvIndex || 0,
+    is_day:
+      typeof hour.isDaytime === 'boolean'
+        ? hour.isDaytime
+        : undefined,
     pop:precipProbability(hour.precipitation),
     thunderstorm_pop:thunderstormProbability(hour),
     qpf_inches:precipQuantityInches(hour.precipitation),
@@ -5781,6 +6300,20 @@ function renderHourlyForecastStrip(data,panelId,startHour){
     card.className =
       'forecast-card forecast-hourly-card';
 
+    const isNightHour =
+      typeof data.hourly[i].is_day === 'boolean'
+        ? !data.hourly[i].is_day
+        : isNightForecastHour(
+          data.hourly[i].dt,
+          currentLat,
+          currentLon
+        );
+
+    card.dataset.dayNight =
+      isNightHour
+        ? 'night'
+        : 'day';
+
     card.onclick = ()=>{
 
       openHourlyDetailModal(i);
@@ -5800,7 +6333,11 @@ function renderHourlyForecastStrip(data,panelId,startHour){
 
     const hourlyIcon = getWeatherIcon(
       data.hourly[i].weather[0].main,
-      data.hourly[i].weather[0].description
+      data.hourly[i].weather[0].description,
+      {
+        isNight:
+          isNightHour
+      }
     );
 
     card.innerHTML = `
