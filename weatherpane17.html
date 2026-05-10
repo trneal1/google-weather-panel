@@ -394,7 +394,7 @@ body{
 
 .forecast-layout{
   display:grid;
-  grid-template-columns:minmax(0,1fr) 46px;
+  grid-template-columns:46px minmax(0,1fr) 46px;
   gap:10px;
   height:100%;
 }
@@ -1297,7 +1297,7 @@ canvas{
   }
 
   .forecast-layout{
-    grid-template-columns:minmax(0,1fr) 38px;
+    grid-template-columns:38px minmax(0,1fr) 38px;
     gap:6px;
   }
 
@@ -1681,6 +1681,15 @@ canvas{
     id="forecastWrapper"
     class="forecast-layout"
   >
+
+    <button
+      class="forecast-toggle-btn"
+      id="forecastPrevBtn"
+      onclick="toggleForecastPanelPrevious()"
+      title="Show previous forecast"
+    >
+      24h
+    </button>
 
     <div class="forecast-panel-stack">
 
@@ -4262,6 +4271,15 @@ function toggleForecastPanel(){
 
 }
 
+function toggleForecastPanelPrevious(){
+
+  forecastPanelIndex =
+    (forecastPanelIndex + 2) % 3;
+
+  updateForecastPanelDisplay();
+
+}
+
 function updateForecastPanelDisplay(){
 
   document.getElementById(
@@ -4290,6 +4308,11 @@ function updateForecastPanelDisplay(){
       'forecastToggleBtn'
     );
 
+  const prevBtn =
+    document.getElementById(
+      'forecastPrevBtn'
+    );
+
   const buttonLabels =
     ['12h','24h','8d'];
 
@@ -4300,11 +4323,31 @@ function updateForecastPanelDisplay(){
       'Show 8 day forecast'
     ];
 
+  const previousButtonLabels =
+    ['24h','8d','12h'];
+
+  const previousButtonTitles =
+    [
+      'Show next 12 hours',
+      'Show 8 day forecast',
+      'Show first 12 hours'
+    ];
+
   toggleBtn.innerText =
     buttonLabels[forecastPanelIndex];
 
   toggleBtn.title =
     buttonTitles[forecastPanelIndex];
+
+  if(prevBtn){
+
+    prevBtn.innerText =
+      previousButtonLabels[forecastPanelIndex];
+
+    prevBtn.title =
+      previousButtonTitles[forecastPanelIndex];
+
+  }
 
 }
 
