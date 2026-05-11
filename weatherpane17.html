@@ -891,6 +891,17 @@ canvas{
   min-width:0;
 }
 
+.parameter-size-select{
+  width:78px;
+  min-height:26px;
+  border:1px solid rgba(255,255,255,0.16);
+  border-radius:7px;
+  background:rgba(7,17,31,0.92);
+  color:white;
+  font-size:11px;
+  padding:0 6px;
+}
+
 .parameter-order-actions{
   display:flex;
   gap:4px;
@@ -961,7 +972,7 @@ canvas{
   user-select:none;
   touch-action:none;
   border-radius:10px;
-  padding:4px 6px;
+  padding:6px 8px;
   transform:translate(-50%,-50%);
   transition:
     background 0.18s,
@@ -979,6 +990,35 @@ canvas{
   opacity:0.42;
   transform:translate(-50%,-50%) scale(0.98);
   pointer-events:none;
+}
+
+.header-draggable-metric .metric-label,
+.header-draggable-metric .metric-value{
+  line-height:1.08;
+}
+
+.header-field-size-small .metric-label{
+  font-size:10px;
+}
+
+.header-field-size-small .metric-value{
+  font-size:18px;
+}
+
+.header-field-size-medium .metric-label{
+  font-size:12px;
+}
+
+.header-field-size-medium .metric-value{
+  font-size:24px;
+}
+
+.header-field-size-large .metric-label{
+  font-size:14px;
+}
+
+.header-field-size-large .metric-value{
+  font-size:32px;
 }
 
 .modal-overlay{
@@ -2296,6 +2336,9 @@ const CURRENT_PANEL_DEFAULTS_STORAGE_KEY =
 const CURRENT_PANEL_POSITIONS_STORAGE_KEY =
   'weatherDashboardCurrentPanelPositions';
 
+const CURRENT_PANEL_FONT_SIZES_STORAGE_KEY =
+  'weatherDashboardCurrentPanelFontSizes';
+
 const CHART_PANEL_DEFAULTS_STORAGE_KEY =
   'weatherDashboardChartPanelDefaults';
 
@@ -2322,6 +2365,11 @@ let currentPanelSelections = {
 };
 
 let currentPanelPositions = {
+  first:{},
+  second:{}
+};
+
+let currentPanelFontSizes = {
   first:{},
   second:{}
 };
@@ -2603,6 +2651,9 @@ currentPanelSelections =
 
 currentPanelPositions =
   loadCurrentWeatherPanelPositions();
+
+currentPanelFontSizes =
+  loadCurrentWeatherPanelFontSizes();
 
 chartPanelSelections =
   loadChartPanelDefaults();
@@ -3969,6 +4020,114 @@ function saveCurrentWeatherPanelPositions(){
 
 }
 
+function normalizeCurrentWeatherPanelFontSizes(fontSizes){
+
+  const normalized = {
+    first:{},
+    second:{}
+  };
+
+  const validSizes =
+    ['small','medium','large'];
+
+  ['first','second'].forEach(panelKey=>{
+
+    const panelSizes =
+      fontSizes && fontSizes[panelKey];
+
+    if(
+      !panelSizes ||
+      typeof panelSizes !== 'object'
+    ){
+
+      return;
+
+    }
+
+    Object.keys(panelSizes).forEach(parameterId=>{
+
+      if(validSizes.includes(panelSizes[parameterId])){
+
+        normalized[panelKey][parameterId] =
+          panelSizes[parameterId];
+
+      }
+
+    });
+
+  });
+
+  return normalized;
+
+}
+
+function loadCurrentWeatherPanelFontSizes(){
+
+  try{
+
+    const savedFontSizes =
+      localStorage.getItem(
+        CURRENT_PANEL_FONT_SIZES_STORAGE_KEY
+      );
+
+    if(savedFontSizes){
+
+      return normalizeCurrentWeatherPanelFontSizes(
+        JSON.parse(savedFontSizes)
+      );
+
+    }
+
+  }
+  catch(err){
+
+    console.log(err);
+
+  }
+
+  return {
+    first:{},
+    second:{}
+  };
+
+}
+
+function saveCurrentWeatherPanelFontSizes(){
+
+  try{
+
+    currentPanelFontSizes =
+      normalizeCurrentWeatherPanelFontSizes(
+        currentPanelFontSizes
+      );
+
+    localStorage.setItem(
+      CURRENT_PANEL_FONT_SIZES_STORAGE_KEY,
+      JSON.stringify(currentPanelFontSizes)
+    );
+
+  }
+  catch(err){
+
+    console.log(err);
+
+  }
+
+}
+
+function getCurrentPanelFieldSize(panelKey,item){
+
+  const size =
+    item.selectionIds
+      .map(parameterId=>
+        currentPanelFontSizes[panelKey][parameterId]
+      )
+      .find(Boolean);
+
+  return size || 'medium';
+
+}
+
 function getCurrentPanelPositionKey(item){
 
   return item.selectionIds.join('|');
@@ -3994,24 +4153,38 @@ function getClampedHeaderMetricPosition(metric,panel,x,y){
   const metricBounds =
     metric.getBoundingClientRect();
 
+  const edgeInsetPixels = 5;
+
   const halfWidthPercent =
     panelBounds.width
-      ? (metricBounds.width / 2 / panelBounds.width) * 100
+      ? ((metricBounds.width / 2 + edgeInsetPixels) / panelBounds.width) * 100
       : 0;
 
   const halfHeightPercent =
     panelBounds.height
-      ? (metricBounds.height / 2 / panelBounds.height) * 100
+      ? ((metricBounds.height / 2 + edgeInsetPixels) / panelBounds.height) * 100
       : 0;
+
+  const minX =
+    Math.min(50, halfWidthPercent);
+
+  const maxX =
+    Math.max(50, 100 - halfWidthPercent);
+
+  const minY =
+    Math.min(50, halfHeightPercent);
+
+  const maxY =
+    Math.max(50, 100 - halfHeightPercent);
 
   return {
     x:Math.min(
-      100 - halfWidthPercent,
-      Math.max(halfWidthPercent, x)
+      maxX,
+      Math.max(minX, x)
     ),
     y:Math.min(
-      100 - halfHeightPercent,
-      Math.max(halfHeightPercent, y)
+      maxY,
+      Math.max(minY, y)
     )
   };
 
@@ -4121,11 +4294,17 @@ function renderCurrentWeatherPanel(panelId,panelKey,selection){
     const parameter =
       item.parameter;
 
+    const fieldSize =
+      getCurrentPanelFieldSize(
+        panelKey,
+        item
+      );
+
     const metric =
       document.createElement('div');
 
     metric.className =
-      'metric header-support-metric header-draggable-metric';
+      `metric header-support-metric header-draggable-metric header-field-size-${fieldSize}`;
 
     metric.dataset.parameterIds =
       item.selectionIds.join(',');
@@ -4442,6 +4621,10 @@ function renderCurrentWeatherPanelSettings(){
       const checked =
         selectedIds.includes(parameter.id);
 
+      const fieldSize =
+        currentPanelFontSizes[panel.key][parameter.id] ||
+        'medium';
+
       option.innerHTML = `
 
         <input
@@ -4450,6 +4633,15 @@ function renderCurrentWeatherPanelSettings(){
           onchange="changeCurrentPanelSetting('${panel.key}','${parameter.id}',this.checked)"
         />
         <span>${parameter.label}</span>
+        <select
+          class="parameter-size-select"
+          onchange="changeCurrentPanelFontSize('${panel.key}','${parameter.id}',this.value)"
+          title="Font size"
+        >
+          <option value="small" ${fieldSize === 'small' ? 'selected' : ''}>Small</option>
+          <option value="medium" ${fieldSize === 'medium' ? 'selected' : ''}>Med</option>
+          <option value="large" ${fieldSize === 'large' ? 'selected' : ''}>Large</option>
+        </select>
 
       `;
 
@@ -4460,6 +4652,24 @@ function renderCurrentWeatherPanelSettings(){
     container.appendChild(group);
 
   });
+
+}
+
+function changeCurrentPanelFontSize(panelKey,parameterId,fontSize){
+
+  if(
+    !['small','medium','large'].includes(fontSize)
+  ){
+
+    return;
+
+  }
+
+  currentPanelFontSizes[panelKey][parameterId] =
+    fontSize;
+
+  saveCurrentWeatherPanelFontSizes();
+  renderCurrentWeatherPanels();
 
 }
 
@@ -5955,6 +6165,35 @@ function normalizeGoogleDay(day){
 
 }
 
+function localDateKey(timestamp){
+
+  const date =
+    new Date(timestamp);
+
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0')
+  ].join('-');
+
+}
+
+function alignDailyForecastDays(dailyData){
+
+  const todayKey =
+    localDateKey(Date.now());
+
+  const currentAndFutureDays =
+    dailyData.filter(day=>
+      localDateKey(day.dt * 1000) >= todayKey
+    );
+
+  return currentAndFutureDays.length
+    ? currentAndFutureDays
+    : dailyData;
+
+}
+
 function normalizeGoogleWeatherData(current,hourly,daily){
 
   const hourlyData =
@@ -5963,8 +6202,10 @@ function normalizeGoogleWeatherData(current,hourly,daily){
     );
 
   const dailyData =
-    (daily.forecastDays || []).map(
-      normalizeGoogleDay
+    alignDailyForecastDays(
+      (daily.forecastDays || []).map(
+        normalizeGoogleDay
+      )
     );
 
   return {
@@ -6044,8 +6285,8 @@ async function loadWeather(lat,lon){
         lat,
         lon,
         {
-          days:8,
-          pageSize:8
+          days:9,
+          pageSize:9
         }
       )
 
@@ -6756,11 +6997,7 @@ function openDayDetailModal(dayIndex){
     latestWeatherData.daily[dayIndex];
 
   const date =
-    new Date();
-
-  date.setDate(
-    date.getDate() + dayIndex
-  );
+    new Date(dayData.dt * 1000);
 
   const dayName =
     date.toLocaleDateString(
@@ -7071,11 +7308,7 @@ function renderForecast(data){
     };
 
     const d =
-      new Date();
-
-    d.setDate(
-      d.getDate() + i
-    );
+      new Date(data.daily[i].dt * 1000);
 
     const day =
       d.toLocaleDateString(
