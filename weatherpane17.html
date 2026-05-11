@@ -994,6 +994,8 @@ canvas{
 #modalCanvas{
   width:100% !important;
   height:100% !important;
+  cursor:ew-resize;
+  touch-action:none;
 }
 
 .day-modal-content{
@@ -2465,6 +2467,18 @@ const CURRENT_WEATHER_PARAMETERS = [
       : '--'
   },
   {
+    id:'heat_index',
+    label:'Heat Index',
+    value:data=>data
+      ? `${Math.round(
+        heatIndexTemperature(
+          data.current.temp,
+          data.current.humidity
+        )
+      )}°`
+      : '--'
+  },
+  {
     id:'wind_speed',
     label:'Wind Speed/Gust',
     value:data=>data
@@ -2497,6 +2511,13 @@ const CURRENT_WEATHER_PARAMETERS = [
     label:'Rain Chance',
     value:data=>data && data.hourly[0]
       ? `${Math.round((data.hourly[0].pop || 0) * 100)}%`
+      : '--'
+  },
+  {
+    id:'thunderstorm_percent',
+    label:'Thunderstorm Percent',
+    value:data=>data && data.hourly[0]
+      ? `${Math.round((data.hourly[0].thunderstorm_pop || 0) * 100)}%`
       : '--'
   },
   {
@@ -2846,7 +2867,189 @@ const midnightLinePlugin = {
 
 };
 
-Chart.register(midnightLinePlugin);
+function getSliderCursorLabelText(label){
+
+  if(Array.isArray(label)){
+
+    return label.join(' ');
+
+  }
+
+  return label || '';
+
+}
+
+function formatSliderCursorValue(canvasId,value,datasetLabel=''){
+
+  if(value === null || typeof value === 'undefined' || Number.isNaN(value)){
+
+    return '--';
+
+  }
+
+  const rounded =
+    Math.abs(value) >= 10
+      ? Math.round(value)
+      : Math.round(value * 10) / 10;
+
+  const suffixes = {
+    tempChart:'°F',
+    feelsLikeChart:'°F',
+    heatIndexChart:'°F',
+    windChart:' mph',
+    humidityChart:'%',
+    pressureChart:' hPa',
+    uvChart:'',
+    cloudCoverChart:'%',
+    precipChart:'%',
+    rainAmountChart:'"',
+    thunderstormChart:'%'
+  };
+
+  const suffix =
+    suffixes[canvasId] || '';
+
+  return `${datasetLabel ? `${datasetLabel}: ` : ''}${rounded}${suffix}`;
+
+}
+
+const sliderCursorPlugin = {
+
+  id:'sliderCursorPlugin',
+
+  afterDraw(chart,args,pluginOptions){
+
+    if(!pluginOptions || !pluginOptions.enabled){
+
+      return;
+
+    }
+
+    const labels =
+      chart.data.labels || [];
+
+    if(!labels.length){
+
+      return;
+
+    }
+
+    const cursor =
+      chart.$sliderCursor || {};
+
+    const activeIndex =
+      Math.max(
+        0,
+        Math.min(
+          labels.length - 1,
+          typeof cursor.activeIndex === 'number'
+            ? cursor.activeIndex
+            : 0
+        )
+      );
+
+    const xScale =
+      chart.scales.x;
+
+    const area =
+      chart.chartArea;
+
+    const x =
+      xScale.getPixelForValue(activeIndex);
+
+    const ctx =
+      chart.ctx;
+
+    const valueLines =
+      chart.data.datasets
+        .filter(dataset=>!dataset.hidden)
+        .map(dataset=>formatSliderCursorValue(
+          pluginOptions.canvasId,
+          dataset.data[activeIndex],
+          chart.data.datasets.length > 1
+            ? dataset.label
+            : ''
+        ));
+
+    const lines = [
+      getSliderCursorLabelText(labels[activeIndex]),
+      ...valueLines
+    ];
+
+    ctx.save();
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.86)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.moveTo(x, area.top);
+    ctx.lineTo(x, area.bottom);
+    ctx.stroke();
+
+    ctx.fillStyle = 'rgba(51,209,255,0.95)';
+    ctx.beginPath();
+    ctx.arc(x, area.top + 10, 5, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.font = '700 12px Arial, sans-serif';
+    const paddingX = 10;
+    const paddingY = 8;
+    const lineHeight = 16;
+    const boxWidth =
+      Math.max(
+        ...lines.map(line=>ctx.measureText(line).width)
+      ) + paddingX * 2;
+    const boxHeight =
+      lines.length * lineHeight + paddingY * 2;
+    const boxX =
+      Math.max(
+        area.left + 4,
+        Math.min(
+          x - boxWidth / 2,
+          area.right - boxWidth - 4
+        )
+      );
+    const boxY =
+      area.top + 14;
+
+    ctx.fillStyle = 'rgba(7,17,31,0.92)';
+    ctx.strokeStyle = 'rgba(255,255,255,0.22)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    if(typeof ctx.roundRect === 'function'){
+
+      ctx.roundRect(boxX, boxY, boxWidth, boxHeight, 8);
+
+    }
+    else{
+
+      ctx.rect(boxX, boxY, boxWidth, boxHeight);
+
+    }
+    ctx.fill();
+    ctx.stroke();
+
+    lines.forEach((line,index)=>{
+
+      ctx.fillStyle =
+        index === 0
+          ? 'rgba(255,255,255,0.92)'
+          : 'rgba(255,255,255,0.78)';
+      ctx.fillText(
+        line,
+        boxX + paddingX,
+        boxY + paddingY + 11 + index * lineHeight
+      );
+
+    });
+
+    ctx.restore();
+
+  }
+
+};
+
+Chart.register(midnightLinePlugin, sliderCursorPlugin);
 
 function refreshChartTimeTicks(){
 
@@ -5820,6 +6023,7 @@ function renderCharts(data){
 
 let modalChartInstance = null;
 let chartDataStore = {};
+let isModalCursorDragging = false;
 
 function storeChartData(canvasId, chart){
 
@@ -5902,17 +6106,21 @@ function openChartModal(canvasId){
           ...chartData.options,
           responsive:true,
           maintainAspectRatio:false,
-          plugins:{
-            ...chartData.options.plugins,
-            midnightLinePlugin:{
-              indexes:getDayBoundaryIndexes(
-                expandedSeries.data,
+        plugins:{
+          ...chartData.options.plugins,
+          midnightLinePlugin:{
+            indexes:getDayBoundaryIndexes(
+              expandedSeries.data,
                 expandedHourlyData
               ),
               dayRanges:getChartDayRanges(
                 expandedSeries.data,
                 expandedHourlyData
               )
+            },
+            sliderCursorPlugin:{
+              enabled:true,
+              canvasId:canvasId
             }
           },
           scales:{
@@ -5952,7 +6160,181 @@ function openChartModal(canvasId){
 
     );
 
+    modalChartInstance.$sliderCursor = {
+      activeIndex:0
+    };
+
+    setupModalSliderCursor(modalCanvas);
+
   }, 50);
+
+}
+
+function setModalSliderCursorFromEvent(event){
+
+  if(!modalChartInstance){
+
+    return;
+
+  }
+
+  const chart =
+    modalChartInstance;
+
+  const area =
+    chart.chartArea;
+
+  const labels =
+    chart.data.labels || [];
+
+  if(!labels.length){
+
+    return;
+
+  }
+
+  const rect =
+    chart.canvas.getBoundingClientRect();
+
+  const x =
+    Math.max(
+      area.left,
+      Math.min(
+        event.clientX - rect.left,
+        area.right
+      )
+    );
+
+  const rawValue =
+    chart.scales.x.getValueForPixel(x);
+
+  const proportionalValue =
+    area.right === area.left
+      ? 0
+      : ((x - area.left) / (area.right - area.left)) *
+        (labels.length - 1);
+
+  const activeIndex =
+    Math.max(
+      0,
+      Math.min(
+        labels.length - 1,
+        Math.round(
+          Number.isFinite(rawValue)
+            ? rawValue
+            : proportionalValue
+        )
+      )
+    );
+
+  chart.$sliderCursor = {
+    activeIndex:activeIndex
+  };
+
+  chart.update('none');
+
+}
+
+function moveModalSliderCursor(direction){
+
+  if(!modalChartInstance){
+
+    return;
+
+  }
+
+  const chart =
+    modalChartInstance;
+
+  const labels =
+    chart.data.labels || [];
+
+  if(!labels.length){
+
+    return;
+
+  }
+
+  const currentIndex =
+    chart.$sliderCursor &&
+    typeof chart.$sliderCursor.activeIndex === 'number'
+      ? chart.$sliderCursor.activeIndex
+      : 0;
+
+  chart.$sliderCursor = {
+    activeIndex:Math.max(
+      0,
+      Math.min(
+        labels.length - 1,
+        currentIndex + direction
+      )
+    )
+  };
+
+  chart.update('none');
+
+}
+
+function setupModalSliderCursor(modalCanvas){
+
+  modalCanvas.tabIndex = 0;
+
+  modalCanvas.onpointerdown = event=>{
+
+    isModalCursorDragging = true;
+    modalCanvas.setPointerCapture(event.pointerId);
+    modalCanvas.focus();
+    setModalSliderCursorFromEvent(event);
+
+  };
+
+  modalCanvas.onpointermove = event=>{
+
+    if(!isModalCursorDragging){
+
+      return;
+
+    }
+
+    setModalSliderCursorFromEvent(event);
+
+  };
+
+  modalCanvas.onpointerup = event=>{
+
+    isModalCursorDragging = false;
+
+    if(modalCanvas.hasPointerCapture(event.pointerId)){
+
+      modalCanvas.releasePointerCapture(event.pointerId);
+
+    }
+
+  };
+
+  modalCanvas.onpointercancel = ()=>{
+
+    isModalCursorDragging = false;
+
+  };
+
+  modalCanvas.onkeydown = event=>{
+
+    if(event.key === 'ArrowLeft'){
+
+      event.preventDefault();
+      moveModalSliderCursor(-1);
+
+    }
+
+    if(event.key === 'ArrowRight'){
+
+      event.preventDefault();
+      moveModalSliderCursor(1);
+
+    }
+
+  };
 
 }
 
@@ -5961,6 +6343,8 @@ function closeChartModal(){
   const modal = document.getElementById('chartModal');
 
   modal.classList.remove('active');
+
+  isModalCursorDragging = false;
 
   if(modalChartInstance){
 
