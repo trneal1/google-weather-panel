@@ -938,6 +938,49 @@ canvas{
   text-align:left;
 }
 
+.header-main{
+  height:100%;
+}
+
+.header-freeform-panel.active{
+  display:block;
+}
+
+.header-freeform-panel{
+  position:relative;
+  height:100%;
+  width:100%;
+  overflow:hidden;
+}
+
+.header-draggable-metric{
+  position:absolute;
+  left:50%;
+  top:50%;
+  cursor:grab;
+  user-select:none;
+  touch-action:none;
+  border-radius:10px;
+  padding:4px 6px;
+  transform:translate(-50%,-50%);
+  transition:
+    background 0.18s,
+    opacity 0.18s,
+    box-shadow 0.18s;
+}
+
+.header-draggable-metric:hover{
+  background:rgba(255,255,255,0.08);
+  box-shadow:0 0 0 1px rgba(255,255,255,0.08);
+}
+
+.header-draggable-metric.dragging{
+  cursor:grabbing;
+  opacity:0.42;
+  transform:translate(-50%,-50%) scale(0.98);
+  pointer-events:none;
+}
+
 .modal-overlay{
   display:none;
   position:fixed;
@@ -1884,13 +1927,13 @@ canvas{
             class="settings-action-btn"
             onclick="saveCurrentWeatherPanelDefaults()"
           >
-            Save Defaults
+            Save Fields
           </button>
           <button
             class="settings-action-btn"
             onclick="resetCurrentWeatherPanelSettings()"
           >
-            Defaults
+            Reset Fields
           </button>
         </div>
 
@@ -2244,9 +2287,14 @@ let weatherUpdateIntervalMinutes = 10;
 let weatherUpdateTimer = null;
 let currentLocationName = 'Wake Forest, NC';
 let currentWeatherStatus = 'Loading';
+let suppressHeaderToggleUntil = 0;
+let activeHeaderMetricDrag = null;
 
 const CURRENT_PANEL_DEFAULTS_STORAGE_KEY =
   'weatherDashboardCurrentPanelDefaults';
+
+const CURRENT_PANEL_POSITIONS_STORAGE_KEY =
+  'weatherDashboardCurrentPanelPositions';
 
 const CHART_PANEL_DEFAULTS_STORAGE_KEY =
   'weatherDashboardChartPanelDefaults';
@@ -2271,6 +2319,11 @@ const DEFAULT_CURRENT_PANEL_SELECTIONS = {
 let currentPanelSelections = {
   first:[...DEFAULT_CURRENT_PANEL_SELECTIONS.first],
   second:[...DEFAULT_CURRENT_PANEL_SELECTIONS.second]
+};
+
+let currentPanelPositions = {
+  first:{},
+  second:{}
 };
 
 const CHART_PANEL_DEFINITIONS = [
@@ -2547,6 +2600,9 @@ const EXPANDED_CHART_HOURS = 96;
 
 currentPanelSelections =
   loadCurrentWeatherPanelDefaults();
+
+currentPanelPositions =
+  loadCurrentWeatherPanelPositions();
 
 chartPanelSelections =
   loadChartPanelDefaults();
@@ -3804,7 +3860,192 @@ function saveCurrentWeatherPanelDefaults(){
 
 }
 
-function renderCurrentWeatherPanel(panelId,selection){
+function normalizeCurrentWeatherPanelPositions(positions){
+
+  const normalized = {
+    first:{},
+    second:{}
+  };
+
+  ['first','second'].forEach(panelKey=>{
+
+    const panelPositions =
+      positions && positions[panelKey];
+
+    if(
+      !panelPositions ||
+      typeof panelPositions !== 'object'
+    ){
+
+      return;
+
+    }
+
+    Object.keys(panelPositions).forEach(positionKey=>{
+
+      const position =
+        panelPositions[positionKey];
+
+      if(
+        !position ||
+        typeof position.x !== 'number' ||
+        typeof position.y !== 'number'
+      ){
+
+        return;
+
+      }
+
+      normalized[panelKey][positionKey] = {
+        x:Math.min(
+          100,
+          Math.max(0, position.x)
+        ),
+        y:Math.min(
+          100,
+          Math.max(0, position.y)
+        )
+      };
+
+    });
+
+  });
+
+  return normalized;
+
+}
+
+function loadCurrentWeatherPanelPositions(){
+
+  try{
+
+    const savedPositions =
+      localStorage.getItem(
+        CURRENT_PANEL_POSITIONS_STORAGE_KEY
+      );
+
+    if(savedPositions){
+
+      return normalizeCurrentWeatherPanelPositions(
+        JSON.parse(savedPositions)
+      );
+
+    }
+
+  }
+  catch(err){
+
+    console.log(err);
+
+  }
+
+  return {
+    first:{},
+    second:{}
+  };
+
+}
+
+function saveCurrentWeatherPanelPositions(){
+
+  try{
+
+    currentPanelPositions =
+      normalizeCurrentWeatherPanelPositions(
+        currentPanelPositions
+      );
+
+    localStorage.setItem(
+      CURRENT_PANEL_POSITIONS_STORAGE_KEY,
+      JSON.stringify(currentPanelPositions)
+    );
+
+  }
+  catch(err){
+
+    console.log(err);
+
+  }
+
+}
+
+function getCurrentPanelPositionKey(item){
+
+  return item.selectionIds.join('|');
+
+}
+
+function getDefaultCurrentPanelPosition(index,total){
+
+  return {
+    x:total <= 1
+      ? 50
+      : 8 + (index * 84) / (total - 1),
+    y:50
+  };
+
+}
+
+function getClampedHeaderMetricPosition(metric,panel,x,y){
+
+  const panelBounds =
+    panel.getBoundingClientRect();
+
+  const metricBounds =
+    metric.getBoundingClientRect();
+
+  const halfWidthPercent =
+    panelBounds.width
+      ? (metricBounds.width / 2 / panelBounds.width) * 100
+      : 0;
+
+  const halfHeightPercent =
+    panelBounds.height
+      ? (metricBounds.height / 2 / panelBounds.height) * 100
+      : 0;
+
+  return {
+    x:Math.min(
+      100 - halfWidthPercent,
+      Math.max(halfWidthPercent, x)
+    ),
+    y:Math.min(
+      100 - halfHeightPercent,
+      Math.max(halfHeightPercent, y)
+    )
+  };
+
+}
+
+function applyHeaderMetricPosition(metric,panel,position){
+
+  metric.style.left =
+    `${position.x}%`;
+
+  metric.style.top =
+    `${position.y}%`;
+
+  requestAnimationFrame(()=>{
+
+    const clampedPosition =
+      getClampedHeaderMetricPosition(
+        metric,
+        panel,
+        position.x,
+        position.y
+      );
+
+    metric.style.left =
+      `${clampedPosition.x}%`;
+
+    metric.style.top =
+      `${clampedPosition.y}%`;
+
+  });
+
+}
+
+function renderCurrentWeatherPanel(panelId,panelKey,selection){
 
   const panel =
     document.getElementById(panelId);
@@ -3814,6 +4055,10 @@ function renderCurrentWeatherPanel(panelId,selection){
     return;
 
   }
+
+  panel.classList.add(
+    'header-freeform-panel'
+  );
 
   let hasCombinedTemperature =
     false;
@@ -3832,7 +4077,13 @@ function renderCurrentWeatherPanel(panelId,selection){
 
         if(!hasCombinedTemperature){
 
-          parameters.push('temperature_feels_like');
+          parameters.push({
+            parameterId:'temperature_feels_like',
+            selectionIds:[
+              'temperature',
+              'feels_like'
+            ]
+          });
 
           hasCombinedTemperature = true;
 
@@ -3842,7 +4093,10 @@ function renderCurrentWeatherPanel(panelId,selection){
 
       }
 
-      parameters.push(parameterId);
+      parameters.push({
+        parameterId,
+        selectionIds:[parameterId]
+      });
 
       return parameters;
 
@@ -3850,21 +4104,40 @@ function renderCurrentWeatherPanel(panelId,selection){
 
   const visibleSelection =
     panelSelection
-      .map(getCurrentWeatherParameter)
-      .filter(Boolean);
+      .map(item=>({
+        ...item,
+        parameter:getCurrentWeatherParameter(
+          item.parameterId
+        )
+      }))
+      .filter(item=>item.parameter);
 
   panel.innerHTML = '';
 
-  panel.style.gridTemplateColumns =
-    `repeat(${Math.max(visibleSelection.length, 1)}, minmax(64px, 1fr))`;
+  panel.style.gridTemplateColumns = '';
 
-  visibleSelection.forEach(parameter=>{
+  visibleSelection.forEach((item,index)=>{
+
+    const parameter =
+      item.parameter;
 
     const metric =
       document.createElement('div');
 
     metric.className =
-      'metric header-support-metric';
+      'metric header-support-metric header-draggable-metric';
+
+    metric.dataset.parameterIds =
+      item.selectionIds.join(',');
+
+    metric.dataset.positionKey =
+      getCurrentPanelPositionKey(item);
+
+    metric.onpointerdown =
+      event=>beginCurrentPanelMetricDrag(
+        event,
+        panelKey
+      );
 
     if(
       parameter.id === 'local_time' ||
@@ -3894,6 +4167,16 @@ function renderCurrentWeatherPanel(panelId,selection){
 
     panel.appendChild(metric);
 
+    applyHeaderMetricPosition(
+      metric,
+      panel,
+      currentPanelPositions[panelKey][metric.dataset.positionKey] ||
+        getDefaultCurrentPanelPosition(
+          index,
+          visibleSelection.length
+        )
+    );
+
   });
 
 }
@@ -3902,13 +4185,190 @@ function renderCurrentWeatherPanels(){
 
   renderCurrentWeatherPanel(
     'headerOverview',
+    'first',
     currentPanelSelections.first
   );
 
   renderCurrentWeatherPanel(
     'headerConditions',
+    'second',
     currentPanelSelections.second
   );
+
+}
+
+function beginCurrentPanelMetricDrag(event,panelKey){
+
+  if(
+    event.pointerType === 'mouse' &&
+    event.button !== 0
+  ){
+
+    return;
+
+  }
+
+  const metric =
+    event.currentTarget;
+
+  const panel =
+    metric.parentElement;
+
+  if(!panel){
+
+    return;
+
+  }
+
+  activeHeaderMetricDrag = {
+    metric,
+    panel,
+    panelKey,
+    startX:event.clientX,
+    startY:event.clientY,
+    startLeft:parseFloat(metric.style.left) || 50,
+    startTop:parseFloat(metric.style.top) || 50,
+    moved:false
+  };
+
+  metric.setPointerCapture(
+    event.pointerId
+  );
+
+  metric.addEventListener(
+    'pointermove',
+    handleCurrentPanelMetricDrag
+  );
+
+  metric.addEventListener(
+    'pointerup',
+    endCurrentPanelMetricDrag
+  );
+
+  metric.addEventListener(
+    'pointercancel',
+    endCurrentPanelMetricDrag
+  );
+
+}
+
+function handleCurrentPanelMetricDrag(event){
+
+  if(!activeHeaderMetricDrag){
+
+    return;
+
+  }
+
+  const drag =
+    activeHeaderMetricDrag;
+
+  const distance =
+    Math.hypot(
+      event.clientX - drag.startX,
+      event.clientY - drag.startY
+    );
+
+  if(distance < 6){
+
+    return;
+
+  }
+
+  event.preventDefault();
+
+  drag.moved = true;
+  drag.metric.classList.add('dragging');
+
+  const panelBounds =
+    drag.panel.getBoundingClientRect();
+
+  const nextX =
+    drag.startLeft +
+    (
+      panelBounds.width
+        ? ((event.clientX - drag.startX) / panelBounds.width) * 100
+        : 0
+    );
+
+  const nextY =
+    drag.startTop +
+    (
+      panelBounds.height
+        ? ((event.clientY - drag.startY) / panelBounds.height) * 100
+        : 0
+    );
+
+  const nextPosition =
+    getClampedHeaderMetricPosition(
+      drag.metric,
+      drag.panel,
+      nextX,
+      nextY
+    );
+
+  drag.metric.style.left =
+    `${nextPosition.x}%`;
+
+  drag.metric.style.top =
+    `${nextPosition.y}%`;
+
+}
+
+function endCurrentPanelMetricDrag(event){
+
+  if(!activeHeaderMetricDrag){
+
+    return;
+
+  }
+
+  const drag =
+    activeHeaderMetricDrag;
+
+  drag.metric.removeEventListener(
+    'pointermove',
+    handleCurrentPanelMetricDrag
+  );
+
+  drag.metric.removeEventListener(
+    'pointerup',
+    endCurrentPanelMetricDrag
+  );
+
+  drag.metric.removeEventListener(
+    'pointercancel',
+    endCurrentPanelMetricDrag
+  );
+
+  if(
+    drag.metric.hasPointerCapture &&
+    drag.metric.hasPointerCapture(event.pointerId)
+  ){
+
+    drag.metric.releasePointerCapture(
+      event.pointerId
+    );
+
+  }
+
+  drag.metric.classList.remove('dragging');
+
+  if(drag.moved){
+
+    suppressHeaderToggleUntil =
+      Date.now() + 350;
+
+    currentPanelPositions[drag.panelKey][drag.metric.dataset.positionKey] = {
+      x:parseFloat(drag.metric.style.left) || 50,
+      y:parseFloat(drag.metric.style.top) || 50
+    };
+
+    saveCurrentWeatherPanelPositions();
+
+  }
+
+  activeHeaderMetricDrag = null;
 
 }
 
@@ -3971,17 +4431,7 @@ function renderCurrentWeatherPanelSettings(){
         )
       );
 
-    const orderedParameters =
-      [
-        ...selectedIds
-          .map(getCurrentWeatherParameter)
-          .filter(Boolean),
-        ...availableParameters.filter(
-          parameter=>!selectedIds.includes(parameter.id)
-        )
-      ];
-
-    orderedParameters.forEach(parameter=>{
+    availableParameters.forEach(parameter=>{
 
       const option =
         document.createElement('div');
@@ -3992,9 +4442,6 @@ function renderCurrentWeatherPanelSettings(){
       const checked =
         selectedIds.includes(parameter.id);
 
-      const selectedIndex =
-        selectedIds.indexOf(parameter.id);
-
       option.innerHTML = `
 
         <input
@@ -4003,26 +4450,6 @@ function renderCurrentWeatherPanelSettings(){
           onchange="changeCurrentPanelSetting('${panel.key}','${parameter.id}',this.checked)"
         />
         <span>${parameter.label}</span>
-        <div class="parameter-order-actions">
-          <button
-            type="button"
-            class="parameter-order-btn"
-            title="Move left"
-            ${!checked || selectedIndex === 0 ? 'disabled' : ''}
-            onclick="moveCurrentPanelParameter('${panel.key}','${parameter.id}',-1)"
-          >
-            ↑
-          </button>
-          <button
-            type="button"
-            class="parameter-order-btn"
-            title="Move right"
-            ${!checked || selectedIndex === selectedIds.length - 1 ? 'disabled' : ''}
-            onclick="moveCurrentPanelParameter('${panel.key}','${parameter.id}',1)"
-          >
-            ↓
-          </button>
-        </div>
 
       `;
 
@@ -4033,51 +4460,6 @@ function renderCurrentWeatherPanelSettings(){
     container.appendChild(group);
 
   });
-
-}
-
-function moveCurrentPanelParameter(panelKey,parameterId,direction){
-
-  const selection =
-    currentPanelSelections[panelKey];
-
-  const currentIndex =
-    selection.indexOf(parameterId);
-
-  if(currentIndex === -1){
-
-    return;
-
-  }
-
-  const nextIndex =
-    currentIndex + direction;
-
-  if(
-    nextIndex < 0 ||
-    nextIndex >= selection.length
-  ){
-
-    return;
-
-  }
-
-  const nextSelection =
-    [...selection];
-
-  [
-    nextSelection[currentIndex],
-    nextSelection[nextIndex]
-  ] = [
-    nextSelection[nextIndex],
-    nextSelection[currentIndex]
-  ];
-
-  currentPanelSelections[panelKey] =
-    nextSelection;
-
-  renderCurrentWeatherPanels();
-  renderCurrentWeatherPanelSettings();
 
 }
 
@@ -4435,6 +4817,12 @@ function closeSettingsPopup(){
 }
 
 function toggleHeaderMode(){
+
+  if(Date.now() < suppressHeaderToggleUntil){
+
+    return;
+
+  }
 
   showingHeaderOverview =
     !showingHeaderOverview;
