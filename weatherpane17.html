@@ -753,6 +753,22 @@ canvas{
   width:auto;
 }
 
+.api-calls-estimate{
+  margin-top:12px;
+  padding:9px 10px;
+  border:1px solid rgba(255,255,255,0.1);
+  border-radius:10px;
+  background:rgba(255,255,255,0.06);
+  color:rgba(255,255,255,0.82);
+  font-size:12px;
+  line-height:1.35;
+}
+
+.api-calls-estimate strong{
+  color:white;
+  font-size:14px;
+}
+
 .settings-screen{
   display:none;
 }
@@ -1877,19 +1893,71 @@ canvas{
         </div>
 
         <div class="settings-field">
-          <label for="weatherIntervalSelect">Weather</label>
+          <label for="currentConditionsRefreshSelect">Current Conditions</label>
           <div class="chart-span-control">
             <select
-              id="weatherIntervalSelect"
-              onchange="changeWeatherInterval()"
+              id="currentConditionsRefreshSelect"
+              onchange="changeWeatherRefreshRate('current')"
             >
-              <option value="5">5 min</option>
-              <option value="10" selected>10 min</option>
-              <option value="15">15 min</option>
-              <option value="30">30 min</option>
+              <option value="1">1 / hour</option>
+              <option value="2">2 / hour</option>
+              <option value="3">3 / hour</option>
+              <option value="4" selected>4 / hour</option>
+              <option value="6">6 / hour</option>
             </select>
           </div>
         </div>
+
+        <div class="settings-field">
+          <label for="dailyForecastRefreshSelect">Daily Forecast</label>
+          <div class="chart-span-control">
+            <select
+              id="dailyForecastRefreshSelect"
+              onchange="changeWeatherRefreshRate('daily')"
+            >
+              <option value="1" selected>1 / hour</option>
+              <option value="2">2 / hour</option>
+              <option value="3">3 / hour</option>
+              <option value="4">4 / hour</option>
+              <option value="6">6 / hour</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="settings-field">
+          <label for="hourlyForecastRefreshSelect">Hour Forecast</label>
+          <div class="chart-span-control">
+            <select
+              id="hourlyForecastRefreshSelect"
+              onchange="changeWeatherRefreshRate('hourly')"
+            >
+              <option value="1" selected>1 / hour</option>
+              <option value="2">2 / hour</option>
+              <option value="3">3 / hour</option>
+              <option value="4">4 / hour</option>
+              <option value="6">6 / hour</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="settings-field">
+          <label for="hourlyForecastHoursSelect">Hour Forecast Pull</label>
+          <div class="chart-span-control">
+            <select
+              id="hourlyForecastHoursSelect"
+              onchange="changeHourlyForecastHours()"
+            >
+              <option value="48">48h</option>
+              <option value="72">72h</option>
+              <option value="96" selected>96h</option>
+            </select>
+          </div>
+        </div>
+
+        <div
+          id="apiCallsEstimate"
+          class="api-calls-estimate"
+        ></div>
 
         <button
           class="settings-nav-btn"
@@ -2323,8 +2391,15 @@ let forecastPanelIndex = 0;
 let showingHeaderOverview = true;
 let chartHourSpan = 24;
 let latestWeatherData = null;
-let weatherUpdateIntervalMinutes = 10;
-let weatherUpdateTimer = null;
+let currentConditionsRefreshesPerHour = 4;
+let dailyForecastRefreshesPerHour = 1;
+let hourlyForecastRefreshesPerHour = 1;
+let hourlyForecastHours = 96;
+let weatherUpdateTimers = {
+  current:null,
+  daily:null,
+  hourly:null
+};
 let currentLocationName = 'Wake Forest, NC';
 let currentWeatherStatus = 'Loading';
 let suppressHeaderToggleUntil = 0;
@@ -2341,6 +2416,9 @@ const CURRENT_PANEL_FONT_SIZES_STORAGE_KEY =
 
 const CHART_PANEL_DEFAULTS_STORAGE_KEY =
   'weatherDashboardChartPanelDefaults';
+
+const WEATHER_UPDATE_SETTINGS_STORAGE_KEY =
+  'weatherDashboardWeatherUpdateSettings';
 
 const DEFAULT_CURRENT_PANEL_SELECTIONS = {
   first:[
@@ -2644,8 +2722,6 @@ const CURRENT_WEATHER_PARAMETERS = [
   },
 ];
 
-const EXPANDED_CHART_HOURS = 96;
-
 currentPanelSelections =
   loadCurrentWeatherPanelDefaults();
 
@@ -2657,6 +2733,8 @@ currentPanelFontSizes =
 
 chartPanelSelections =
   loadChartPanelDefaults();
+
+loadWeatherUpdateSettings();
 
 // ======================================
 // DESTROY
@@ -3304,7 +3382,8 @@ function createChart(
             ...(chartOptions.y || {}),
 
             ticks:{
-              color:'rgba(255,255,255,0.6)'
+              color:'rgba(255,255,255,0.6)',
+              ...((chartOptions.y || {}).ticks || {})
             },
 
             grid:{
@@ -3778,16 +3857,284 @@ function changeRadarCloudInterval(){
 
 }
 
-function changeWeatherInterval(){
+function normalizeRefreshesPerHour(value,defaultValue){
 
-  weatherUpdateIntervalMinutes =
-    Number(
-      document.getElementById(
-        'weatherIntervalSelect'
-      ).value
+  const allowedValues =
+    [1,2,3,4,6];
+
+  const refreshesPerHour =
+    Number(value);
+
+  return allowedValues.includes(refreshesPerHour)
+    ? refreshesPerHour
+    : defaultValue;
+
+}
+
+function normalizeHourlyForecastHours(value){
+
+  const hours =
+    Number(value);
+
+  return [48,72,96].includes(hours)
+    ? hours
+    : 96;
+
+}
+
+function loadWeatherUpdateSettings(){
+
+  try{
+
+    const savedSettings =
+      localStorage.getItem(
+        WEATHER_UPDATE_SETTINGS_STORAGE_KEY
+      );
+
+    if(!savedSettings){
+
+      return;
+
+    }
+
+    const settings =
+      JSON.parse(savedSettings);
+
+    currentConditionsRefreshesPerHour =
+      normalizeRefreshesPerHour(
+        settings.currentConditionsRefreshesPerHour,
+        4
+      );
+
+    dailyForecastRefreshesPerHour =
+      normalizeRefreshesPerHour(
+        settings.dailyForecastRefreshesPerHour,
+        1
+      );
+
+    hourlyForecastRefreshesPerHour =
+      normalizeRefreshesPerHour(
+        settings.hourlyForecastRefreshesPerHour,
+        1
+      );
+
+    hourlyForecastHours =
+      normalizeHourlyForecastHours(
+        settings.hourlyForecastHours
+      );
+
+  }
+  catch(err){
+
+    console.log(err);
+
+  }
+
+}
+
+function saveWeatherUpdateSettings(){
+
+  try{
+
+    localStorage.setItem(
+      WEATHER_UPDATE_SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        currentConditionsRefreshesPerHour,
+        dailyForecastRefreshesPerHour,
+        hourlyForecastRefreshesPerHour,
+        hourlyForecastHours
+      })
     );
 
+  }
+  catch(err){
+
+    console.log(err);
+
+  }
+
+}
+
+function syncSelectValue(selectId,value){
+
+  const select =
+    document.getElementById(selectId);
+
+  if(select){
+
+    select.value =
+      String(value);
+
+  }
+
+}
+
+function syncWeatherUpdateSettingsControls(){
+
+  syncSelectValue(
+    'currentConditionsRefreshSelect',
+    currentConditionsRefreshesPerHour
+  );
+
+  syncSelectValue(
+    'dailyForecastRefreshSelect',
+    dailyForecastRefreshesPerHour
+  );
+
+  syncSelectValue(
+    'hourlyForecastRefreshSelect',
+    hourlyForecastRefreshesPerHour
+  );
+
+  syncSelectValue(
+    'hourlyForecastHoursSelect',
+    hourlyForecastHours
+  );
+
+  updateApiCallsEstimate();
+
+}
+
+function estimateGoogleApiCallsPerHour(){
+
+  const hourlyPages =
+    Math.ceil(
+      hourlyForecastHours / 24
+    );
+
+  return (
+    currentConditionsRefreshesPerHour +
+    dailyForecastRefreshesPerHour +
+    (hourlyForecastRefreshesPerHour * hourlyPages)
+  );
+
+}
+
+function updateApiCallsEstimate(){
+
+  const estimate =
+    document.getElementById(
+      'apiCallsEstimate'
+    );
+
+  if(!estimate){
+
+    return;
+
+  }
+
+  const hourlyPages =
+    Math.ceil(
+      hourlyForecastHours / 24
+    );
+
+  estimate.innerHTML =
+    `<strong>${estimateGoogleApiCallsPerHour()} Google API calls/hour</strong><br>` +
+    `${currentConditionsRefreshesPerHour} current + ` +
+    `${dailyForecastRefreshesPerHour} daily + ` +
+    `${hourlyForecastRefreshesPerHour} hourly x ${hourlyPages} pages`;
+
+}
+
+function getWeatherRefreshSelectId(updateType){
+
+  return {
+    current:'currentConditionsRefreshSelect',
+    daily:'dailyForecastRefreshSelect',
+    hourly:'hourlyForecastRefreshSelect'
+  }[updateType];
+
+}
+
+function setWeatherRefreshRate(updateType,value){
+
+  const refreshesPerHour =
+    normalizeRefreshesPerHour(
+      value,
+      1
+    );
+
+  if(updateType === 'current'){
+
+    currentConditionsRefreshesPerHour =
+      refreshesPerHour;
+
+  }
+  else if(updateType === 'daily'){
+
+    dailyForecastRefreshesPerHour =
+      refreshesPerHour;
+
+  }
+  else if(updateType === 'hourly'){
+
+    hourlyForecastRefreshesPerHour =
+      refreshesPerHour;
+
+  }
+
+}
+
+function changeWeatherRefreshRate(updateType){
+
+  const selectId =
+    getWeatherRefreshSelectId(updateType);
+
+  const select =
+    selectId
+      ? document.getElementById(selectId)
+      : null;
+
+  if(!select){
+
+    return;
+
+  }
+
+  setWeatherRefreshRate(
+    updateType,
+    select.value
+  );
+
+  saveWeatherUpdateSettings();
+
+  updateApiCallsEstimate();
+
   startWeatherUpdates();
+
+}
+
+function changeHourlyForecastHours(){
+
+  const select =
+    document.getElementById(
+      'hourlyForecastHoursSelect'
+    );
+
+  if(!select){
+
+    return;
+
+  }
+
+  hourlyForecastHours =
+    normalizeHourlyForecastHours(
+      select.value
+    );
+
+  saveWeatherUpdateSettings();
+
+  updateApiCallsEstimate();
+
+  if(latestWeatherData){
+
+    refreshWeatherPart(
+      'hourly',
+      currentLat,
+      currentLon
+    );
+
+  }
 
 }
 
@@ -6194,12 +6541,49 @@ function alignDailyForecastDays(dailyData){
 
 }
 
-function normalizeGoogleWeatherData(current,hourly,daily){
+function normalizeGoogleCurrentConditions(current){
+
+  return {
+    weather:[
+      {
+        main:conditionType(current.weatherCondition),
+        description:conditionText(current.weatherCondition)
+      }
+    ],
+    temp:temperatureDegrees(current.temperature),
+    feels_like:temperatureDegrees(
+      current.feelsLikeTemperature || current.temperature
+    ),
+    humidity:current.relativeHumidity || 0,
+    pressure:Math.round(
+      current.airPressure
+        ? current.airPressure.meanSeaLevelMillibars
+        : 0
+    ),
+    wind_speed:windValue(
+      current.wind,
+      'speed'
+    ),
+    wind_gust:windGustValue(current),
+    wind_deg:current.wind && current.wind.direction
+      ? current.wind.direction.degrees
+      : 0
+  };
+
+}
+
+function normalizeGoogleHourlyForecast(hourly){
 
   const hourlyData =
     (hourly.forecastHours || []).map(
       normalizeGoogleHour
     );
+
+  return hourlyData;
+
+}
+
+function normalizeGoogleDailyForecast(daily){
 
   const dailyData =
     alignDailyForecastDays(
@@ -6208,38 +6592,199 @@ function normalizeGoogleWeatherData(current,hourly,daily){
       )
     );
 
+  return dailyData;
+
+}
+
+function normalizeGoogleWeatherData(current,hourly,daily){
+
+  const hourlyData =
+    normalizeGoogleHourlyForecast(hourly);
+
+  const dailyData =
+    normalizeGoogleDailyForecast(daily);
+
   return {
 
-    current:{
-      weather:[
-        {
-          main:conditionType(current.weatherCondition),
-          description:conditionText(current.weatherCondition)
-        }
-      ],
-      temp:temperatureDegrees(current.temperature),
-      feels_like:temperatureDegrees(
-        current.feelsLikeTemperature || current.temperature
-      ),
-      humidity:current.relativeHumidity || 0,
-      pressure:Math.round(
-        current.airPressure
-          ? current.airPressure.meanSeaLevelMillibars
-          : 0
-      ),
-      wind_speed:windValue(
-        current.wind,
-        'speed'
-      ),
-      wind_gust:windGustValue(current),
-      wind_deg:current.wind && current.wind.direction
-        ? current.wind.direction.degrees
-        : 0
-    },
+    current:normalizeGoogleCurrentConditions(current),
     hourly:hourlyData,
     daily:dailyData
 
   };
+
+}
+
+async function fetchCurrentConditions(lat,lon){
+
+  const current =
+    await fetchGoogleWeather(
+      'currentConditions',
+      lat,
+      lon
+    );
+
+  return normalizeGoogleCurrentConditions(
+    current
+  );
+
+}
+
+async function fetchHourlyForecast(lat,lon){
+
+  const hourly =
+    await fetchGoogleWeatherPages(
+      'forecast/hours',
+      lat,
+      lon,
+      {
+        hours:hourlyForecastHours,
+        pageSize:24
+      },
+      'forecastHours',
+      hourlyForecastHours
+    );
+
+  return normalizeGoogleHourlyForecast(
+    hourly
+  );
+
+}
+
+async function fetchDailyForecast(lat,lon){
+
+  const daily =
+    await fetchGoogleWeather(
+      'forecast/days',
+      lat,
+      lon,
+      {
+        days:9,
+        pageSize:9
+      }
+    );
+
+  return normalizeGoogleDailyForecast(
+    daily
+  );
+
+}
+
+function renderWeatherData(data){
+
+  latestWeatherData = data;
+  currentWeatherStatus =
+    data.current.weather[0].description;
+
+  renderCurrentWeatherPanels();
+
+  renderCharts(data);
+
+  renderForecast(data);
+
+}
+
+function renderLatestWeatherData(){
+
+  if(
+    !latestWeatherData ||
+    !latestWeatherData.current ||
+    !latestWeatherData.hourly.length ||
+    !latestWeatherData.daily.length
+  ){
+
+    return;
+
+  }
+
+  renderWeatherData(
+    latestWeatherData
+  );
+
+}
+
+async function refreshCurrentConditions(lat,lon){
+
+  const current =
+    await fetchCurrentConditions(lat,lon);
+
+  if(latestWeatherData){
+
+    latestWeatherData.current =
+      current;
+
+    renderLatestWeatherData();
+
+  }
+
+}
+
+async function refreshHourlyForecast(lat,lon){
+
+  const hourly =
+    await fetchHourlyForecast(lat,lon);
+
+  if(latestWeatherData){
+
+    latestWeatherData.hourly =
+      hourly;
+
+    renderLatestWeatherData();
+
+  }
+
+}
+
+async function refreshDailyForecast(lat,lon){
+
+  const daily =
+    await fetchDailyForecast(lat,lon);
+
+  if(latestWeatherData){
+
+    latestWeatherData.daily =
+      daily;
+
+    renderLatestWeatherData();
+
+  }
+
+}
+
+async function refreshWeatherPart(updateType,lat,lon){
+
+  try{
+
+    if(updateType === 'current'){
+
+      await refreshCurrentConditions(lat,lon);
+
+    }
+    else if(updateType === 'hourly'){
+
+      await refreshHourlyForecast(lat,lon);
+
+    }
+    else if(updateType === 'daily'){
+
+      await refreshDailyForecast(lat,lon);
+
+    }
+
+  }
+  catch(err){
+
+    console.error(err);
+
+    if(updateType === 'current'){
+
+      currentWeatherStatus =
+        err.message || 'Weather unavailable';
+
+      renderCurrentWeatherPanels();
+
+    }
+
+  }
 
 }
 
@@ -6264,40 +6809,17 @@ async function loadWeather(lat,lon){
       daily
     ] = await Promise.all([
 
-      fetchGoogleWeather(
-        'currentConditions',
-        lat,
-        lon
-      ),
-      fetchGoogleWeatherPages(
-        'forecast/hours',
-        lat,
-        lon,
-        {
-          hours:EXPANDED_CHART_HOURS,
-          pageSize:24
-        },
-        'forecastHours',
-        EXPANDED_CHART_HOURS
-      ),
-      fetchGoogleWeather(
-        'forecast/days',
-        lat,
-        lon,
-        {
-          days:9,
-          pageSize:9
-        }
-      )
+      fetchCurrentConditions(lat,lon),
+      fetchHourlyForecast(lat,lon),
+      fetchDailyForecast(lat,lon)
 
     ]);
 
-    const data =
-      normalizeGoogleWeatherData(
-        current,
-        hourly,
-        daily
-      );
+    const data = {
+      current,
+      hourly,
+      daily
+    };
 
     if(!data.hourly.length || !data.daily.length){
 
@@ -6307,15 +6829,7 @@ async function loadWeather(lat,lon){
 
     }
 
-    latestWeatherData = data;
-    currentWeatherStatus =
-      data.current.weather[0].description;
-
-    renderCurrentWeatherPanels();
-
-    renderCharts(data);
-
-    renderForecast(data);
+    renderWeatherData(data);
 
   }
 
@@ -6389,7 +6903,15 @@ function getChartSeries(canvasId,hourlyData){
     },
     pressureChart:{
       data:hourlyData.map(h=>h.pressure),
-      color:'#ffc857'
+      color:'#ffc857',
+      options:{
+        y:{
+          ticks:{
+            precision:0,
+            callback:value=>Math.round(value)
+          }
+        }
+      }
     },
     uvChart:{
       data:hourlyData.map(h=>h.uvi || 0),
@@ -6517,7 +7039,15 @@ function renderCharts(data){
     hourlyData.map(h=>h.pressure),
     '#ffc857',
     'line',
-    hourlyData
+    hourlyData,
+    {
+      y:{
+        ticks:{
+          precision:0,
+          callback:value=>Math.round(value)
+        }
+      }
+    }
   );
 
   uvChart = createChart(
@@ -6698,7 +7228,7 @@ function openChartModal(canvasId){
       latestWeatherData
         ? latestWeatherData.hourly.slice(
           0,
-          EXPANDED_CHART_HOURS
+          hourlyForecastHours
         )
         : [];
 
@@ -7747,20 +8277,40 @@ let currentLon = DEFAULT_LOCATION.lon;
 
 function startWeatherUpdates(){
 
-  if(weatherUpdateTimer){
+  Object.keys(weatherUpdateTimers).forEach(updateType=>{
 
-    clearInterval(
-      weatherUpdateTimer
-    );
+    if(weatherUpdateTimers[updateType]){
 
-  }
+      clearInterval(
+        weatherUpdateTimers[updateType]
+      );
 
-  weatherUpdateTimer =
-    setInterval(()=>{
+    }
 
-      loadWeather(currentLat, currentLon);
+  });
 
-    }, weatherUpdateIntervalMinutes * 60 * 1000);
+  const updateIntervals = {
+    current:currentConditionsRefreshesPerHour,
+    daily:dailyForecastRefreshesPerHour,
+    hourly:hourlyForecastRefreshesPerHour
+  };
+
+  Object.entries(updateIntervals).forEach(
+    ([updateType,refreshesPerHour])=>{
+
+      weatherUpdateTimers[updateType] =
+        setInterval(()=>{
+
+          refreshWeatherPart(
+            updateType,
+            currentLat,
+            currentLon
+          );
+
+        }, (60 / refreshesPerHour) * 60 * 1000);
+
+    }
+  );
 
 }
 
@@ -7791,6 +8341,8 @@ function startLocalTimeUpdates(){
 // ======================================
 
 (async function start(){
+
+  syncWeatherUpdateSettingsControls();
 
   startLocalTimeUpdates();
 
