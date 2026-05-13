@@ -769,6 +769,33 @@ canvas{
   font-size:14px;
 }
 
+.weather-update-countdowns{
+  margin-top:12px;
+  padding:9px 10px;
+  border:1px solid rgba(255,255,255,0.1);
+  border-radius:10px;
+  background:rgba(255,255,255,0.05);
+  color:rgba(255,255,255,0.84);
+  font-size:12px;
+  line-height:1.45;
+}
+
+.weather-update-countdown{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+}
+
+.weather-update-countdown span:first-child{
+  opacity:0.72;
+}
+
+.weather-update-countdown span:last-child{
+  color:white;
+  font-variant-numeric:tabular-nums;
+  white-space:nowrap;
+}
+
 .settings-screen{
   display:none;
 }
@@ -1959,6 +1986,21 @@ canvas{
           class="api-calls-estimate"
         ></div>
 
+        <div class="weather-update-countdowns">
+          <div class="weather-update-countdown">
+            <span>Current update</span>
+            <span id="currentWeatherUpdateCountdown">Waiting</span>
+          </div>
+          <div class="weather-update-countdown">
+            <span>Hourly forecast update</span>
+            <span id="hourlyWeatherUpdateCountdown">Waiting</span>
+          </div>
+          <div class="weather-update-countdown">
+            <span>Daily forecast update</span>
+            <span id="dailyWeatherUpdateCountdown">Waiting</span>
+          </div>
+        </div>
+
         <button
           class="settings-nav-btn"
           onclick="showCurrentWeatherSettings()"
@@ -2400,6 +2442,12 @@ let weatherUpdateTimers = {
   daily:null,
   hourly:null
 };
+let weatherUpdateNextTimes = {
+  current:null,
+  daily:null,
+  hourly:null
+};
+let weatherUpdateCountdownTimer = null;
 let currentLocationName = 'Wake Forest, NC';
 let currentWeatherStatus = 'Loading';
 let suppressHeaderToggleUntil = 0;
@@ -4036,6 +4084,106 @@ function updateApiCallsEstimate(){
 
 }
 
+function formatWeatherUpdateCountdown(milliseconds){
+
+  if(milliseconds === null){
+
+    return 'Waiting';
+
+  }
+
+  if(milliseconds <= 0){
+
+    return 'Updating';
+
+  }
+
+  const totalSeconds =
+    Math.ceil(milliseconds / 1000);
+
+  const hours =
+    Math.floor(totalSeconds / 3600);
+
+  const minutes =
+    Math.floor((totalSeconds % 3600) / 60);
+
+  const seconds =
+    totalSeconds % 60;
+
+  if(hours > 0){
+
+    return (
+      `${hours}:` +
+      `${String(minutes).padStart(2,'0')}:` +
+      `${String(seconds).padStart(2,'0')}`
+    );
+
+  }
+
+  return (
+    `${minutes}:` +
+    `${String(seconds).padStart(2,'0')}`
+  );
+
+}
+
+function updateWeatherUpdateCountdowns(){
+
+  const countdownElements = {
+    current:document.getElementById(
+      'currentWeatherUpdateCountdown'
+    ),
+    hourly:document.getElementById(
+      'hourlyWeatherUpdateCountdown'
+    ),
+    daily:document.getElementById(
+      'dailyWeatherUpdateCountdown'
+    )
+  };
+
+  Object.entries(countdownElements).forEach(
+    ([updateType,element])=>{
+
+      if(!element){
+
+        return;
+
+      }
+
+      const nextTime =
+        weatherUpdateNextTimes[updateType];
+
+      element.textContent =
+        formatWeatherUpdateCountdown(
+          nextTime === null
+            ? null
+            : nextTime - Date.now()
+        );
+
+    }
+  );
+
+}
+
+function startWeatherUpdateCountdowns(){
+
+  updateWeatherUpdateCountdowns();
+
+  if(weatherUpdateCountdownTimer){
+
+    return;
+
+  }
+
+  weatherUpdateCountdownTimer =
+    setInterval(()=>{
+
+      updateWeatherUpdateCountdowns();
+
+    }, 1000);
+
+}
+
 function getWeatherRefreshSelectId(updateType){
 
   return {
@@ -5354,6 +5502,8 @@ function showMainSettings(){
 function openSettingsPopup(){
 
   showMainSettings();
+
+  updateWeatherUpdateCountdowns();
 
   document.getElementById(
     'settingsOverlay'
@@ -8287,6 +8437,12 @@ function startWeatherUpdates(){
 
     }
 
+    weatherUpdateTimers[updateType] =
+      null;
+
+    weatherUpdateNextTimes[updateType] =
+      null;
+
   });
 
   const updateIntervals = {
@@ -8298,8 +8454,19 @@ function startWeatherUpdates(){
   Object.entries(updateIntervals).forEach(
     ([updateType,refreshesPerHour])=>{
 
+      const intervalMilliseconds =
+        (60 / refreshesPerHour) * 60 * 1000;
+
+      weatherUpdateNextTimes[updateType] =
+        Date.now() + intervalMilliseconds;
+
       weatherUpdateTimers[updateType] =
         setInterval(()=>{
+
+          weatherUpdateNextTimes[updateType] =
+            Date.now() + intervalMilliseconds;
+
+          updateWeatherUpdateCountdowns();
 
           refreshWeatherPart(
             updateType,
@@ -8307,10 +8474,12 @@ function startWeatherUpdates(){
             currentLon
           );
 
-        }, (60 / refreshesPerHour) * 60 * 1000);
+        }, intervalMilliseconds);
 
     }
   );
+
+  updateWeatherUpdateCountdowns();
 
 }
 
@@ -8343,6 +8512,8 @@ function startLocalTimeUpdates(){
 (async function start(){
 
   syncWeatherUpdateSettingsControls();
+
+  startWeatherUpdateCountdowns();
 
   startLocalTimeUpdates();
 
