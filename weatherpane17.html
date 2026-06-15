@@ -213,6 +213,35 @@ body{
   height:100%;
 }
 
+.map-expand-btn{
+  position:absolute;
+  top:10px;
+  left:52px;
+  z-index:2001;
+  width:34px;
+  height:34px;
+  padding:0;
+  border:2px solid rgba(0,0,0,0.2);
+  border-radius:4px;
+  background:white;
+  color:#222;
+  font-size:18px;
+  line-height:30px;
+  font-weight:bold;
+  cursor:pointer;
+  box-shadow:0 1px 5px rgba(0,0,0,0.35);
+}
+
+.map-expand-btn:hover{
+  background:#f4f4f4;
+}
+
+.map-panel:fullscreen{
+  border:0;
+  border-radius:0;
+  background:#07111f;
+}
+
 .cloud-tile-layer{
   filter:brightness(1.08) contrast(1.75) saturate(0.65);
   mix-blend-mode:normal;
@@ -1543,6 +1572,17 @@ canvas{
 
       <div id="map"></div>
 
+      <button
+        id="mapExpandButton"
+        class="map-expand-btn"
+        type="button"
+        onclick="toggleMapFullscreen()"
+        title="Expand map"
+        aria-label="Expand map to full screen"
+      >
+        ⤢
+      </button>
+
       <div id="radarCountdown">
         Radar refresh in 5:00
       </div>
@@ -2209,6 +2249,45 @@ const map = L.map(
   [DEFAULT_LOCATION.lat, DEFAULT_LOCATION.lon],
   7
 );
+
+function toggleMapFullscreen(){
+
+  const mapPanel = document.querySelector('.map-panel');
+
+  if(document.fullscreenElement === mapPanel){
+
+    document.exitFullscreen();
+
+    return;
+
+  }
+
+  mapPanel.requestFullscreen();
+
+}
+
+document.addEventListener('fullscreenchange',()=>{
+
+  const mapPanel = document.querySelector('.map-panel');
+  const expandButton = document.getElementById('mapExpandButton');
+  const isMapFullscreen = document.fullscreenElement === mapPanel;
+
+  expandButton.textContent = isMapFullscreen ? '✕' : '⤢';
+  expandButton.title = isMapFullscreen ? 'Close full screen' : 'Expand map';
+  expandButton.setAttribute(
+    'aria-label',
+    isMapFullscreen
+      ? 'Close full screen map'
+      : 'Expand map to full screen'
+  );
+
+  setTimeout(()=>{
+
+    map.invalidateSize();
+
+  },100);
+
+});
 
 L.tileLayer(
   'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
